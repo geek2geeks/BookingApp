@@ -1,163 +1,131 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { BookingStore, BookingData, Booking, TimeSlot, BookingOperationResult } from '@/app/types'
+import { type BookingFormData } from '../schemas/booking-form-schema'
+import { type Booking, type BookingResult, createBooking, cancelBooking, modifyBooking, getBookingByCode } from '../utils/booking-utils'
 
-interface State extends BookingStore {
-  isLoading: boolean;
-  error: string | null;
-  clearError: () => void;
-  setLoading: (loading: boolean) => void;
-  setError: (error: string) => void;
-  reset: () => void;
+interface BookingState {
+  selectedSlot: string | null
+  bookings: Booking[]
+  isLoading: boolean
+  error: string | null
+  setSelectedSlot: (slot: string | null) => void
+  addBooking: (data: BookingFormData & { slot: string }) => Promise<BookingResult>
+  cancelBooking: (code: string) => Promise<BookingResult>
+  modifyBooking: (code: string, data: Partial<BookingFormData> & { slot?: string }) => Promise<BookingResult>
+  getBooking: (code: string) => Promise<Booking | null>
+  clearError: () => void
 }
 
-const initialState = {
-  bookings: [],
-  selectedSlot: null,
-  isBooking: false,
-  isLoading: false,
-  error: null,
-}
-
-export const useBookingStore = create<State>()(
+export const useBookingStore = create<BookingState>()(
   persist(
     (set, get) => ({
-      ...initialState,
+      selectedSlot: null,
+      bookings: [],
+      isLoading: false,
+      error: null,
 
-      // Loading and error states
-      setLoading: (loading: boolean) => set({ isLoading: loading }),
-      setError: (error: string) => set({ error }),
-      clearError: () => set({ error: null }),
+      setSelectedSlot: (slot) => set({ selectedSlot: slot }),
 
-      // Slot selection
-      setSelectedSlot: (slot: TimeSlot) => 
-        set({ selectedSlot: slot, isBooking: true }),
-
-      // Booking operations
-      addBooking: async (booking: Booking) => {
+      addBooking: async (data) => {
+        set({ isLoading: true, error: null })
         try {
-          set({ isLoading: true, error: null });
-          
-          // Create BookingData from Booking
-          const newBooking: BookingData = {
-            ...booking,
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-
-          // Validate no overlapping bookings
-          const hasOverlap = get().bookings.some(b => b.slot === booking.slot);
-          if (hasOverlap) {
-            throw new Error('This slot has already been booked');
-          }
-
-          // Add to state
-          set(state => ({ 
-            bookings: [...state.bookings, newBooking],
-            isBooking: false,
-            selectedSlot: null,
-          }));
-
-          return { success: true, code: booking.code };
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Failed to add booking';
-          set({ error: message });
-          return { success: false, error: message };
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-
-      removeBooking: async (code: string): Promise<BookingOperationResult> => {
-        try {
-          set({ isLoading: true, error: null });
-
-          // Find booking
-          const booking = get().bookings.find(b => b.code === code);
-          if (!booking) {
-            throw new Error('Booking not found');
-          }
-
-          // Remove from state
-          set(state => ({
-            bookings: state.bookings.filter(b => b.code !== code)
-          }));
-
-          return { success: true };
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Failed to remove booking';
-          set({ error: message });
-          return { success: false, error: message };
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-
-      modifyBooking: async (code: string, newBooking: Booking): Promise<BookingOperationResult> => {
-        try {
-          set({ isLoading: true, error: null });
-
-          // Find existing booking
-          const existingBooking = get().bookings.find(b => b.code === code);
-          if (!existingBooking) {
-            throw new Error('Booking not found');
-          }
-
-          // Check for slot overlap if slot is being changed
-          if (newBooking.slot !== existingBooking.slot) {
-            const hasOverlap = get().bookings.some(
-              b => b.slot === newBooking.slot && b.code !== code
-            );
-            if (hasOverlap) {
-              throw new Error('This slot has already been booked');
+          const result = await createBooking(data)
+          if (result.success && result.code) {
+            const newBooking: Booking = {
+              ...data,
+              code: result.code,
+              createdAt: new Date().toISOString(),
             }
+            set((state) => ({
+              bookings: [...state.bookings, newBooking],
+              selectedSlot: null,
+            }))
+          } else {
+            set({ error: result.error || 'Failed to create booking' })
           }
-
-          // Update booking
-          const updatedBooking: BookingData = {
-            ...newBooking,
-            id: existingBooking.id,
-            createdAt: existingBooking.createdAt,
-            updatedAt: new Date().toISOString(),
-          };
-
-          set(state => ({
-            bookings: state.bookings.map(b => 
-              b.code === code ? updatedBooking : b
-            )
-          }));
-
-          return { success: true };
+          return result
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'Failed to modify booking';
-          set({ error: message });
-          return { success: false, error: message };
+          const errorMessage = error instanceof Error ? error.message : 'Failed to create booking'
+          set({ error: errorMessage })
+          return { success: false, error: errorMessage }
         } finally {
-          set({ isLoading: false });
+          set({ isLoading: false })
         }
       },
 
-      // Reset store
-      reset: () => {
-        set(initialState);
+      cancelBooking: async (code) => {
+        set({ isLoading: true, error: null })
+        try {
+          const result = await cancelBooking(code)
+          if (result.success) {
+            set((state) => ({
+              bookings: state.bookings.filter((booking) => booking.code !== code),
+            }))
+          } else {
+            set({ error: result.error || 'Failed to cancel booking' })
+          }
+          return result
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to cancel booking'
+          set({ error: errorMessage })
+          return { success: false, error: errorMessage }
+        } finally {
+          set({ isLoading: false })
+        }
       },
+
+      modifyBooking: async (code, data) => {
+        set({ isLoading: true, error: null })
+        try {
+          const result = await modifyBooking(code, data)
+          if (result.success) {
+            set((state) => ({
+              bookings: state.bookings.map((booking) =>
+                booking.code === code
+                  ? { ...booking, ...data }
+                  : booking
+              ),
+            }))
+          } else {
+            set({ error: result.error || 'Failed to modify booking' })
+          }
+          return result
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to modify booking'
+          set({ error: errorMessage })
+          return { success: false, error: errorMessage }
+        } finally {
+          set({ isLoading: false })
+        }
+      },
+
+      getBooking: async (code) => {
+        set({ isLoading: true, error: null })
+        try {
+          const booking = await getBookingByCode(code)
+          if (!booking) {
+            set({ error: 'Booking not found' })
+          }
+          return booking
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to get booking'
+          set({ error: errorMessage })
+          return null
+        } finally {
+          set({ isLoading: false })
+        }
+      },
+
+      clearError: () => set({ error: null }),
     }),
     {
       name: 'booking-store',
-      // Only persist bookings, not UI state
-      partialize: (state) => ({ 
-        bookings: state.bookings 
-      }),
     }
   )
-);
+)
 
-// Selector hooks for better performance
-export const useBookings = () => useBookingStore(state => state.bookings);
-export const useSelectedSlot = () => useBookingStore(state => state.selectedSlot);
-export const useIsBooking = () => useBookingStore(state => state.isBooking);
-export const useLoadingState = () => useBookingStore(state => ({
-  isLoading: state.isLoading,
-  error: state.error,
-})); 
+// Selector hooks
+export const useSelectedSlot = () => useBookingStore((state) => state.selectedSlot)
+export const useBookings = () => useBookingStore((state) => state.bookings)
+export const useBookingError = () => useBookingStore((state) => state.error)
+export const useBookingLoading = () => useBookingStore((state) => state.isLoading) 
