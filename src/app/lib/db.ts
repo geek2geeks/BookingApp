@@ -1,111 +1,112 @@
-import { promises as fs } from 'fs'
-import path from 'path'
 import { BookingData } from '../types'
+import { supabase } from './supabase'
 
-const dbPath = path.join(process.cwd(), 'data', 'bookings.json')
+export const db = {
+  getBookings: async (): Promise<BookingData[]> => {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .order('createdAt', { ascending: false })
 
-// Helper functions for file operations
-async function readDB(): Promise<BookingData[]> {
-  try {
-    // Ensure data directory exists
-    await fs.mkdir(path.dirname(dbPath), { recursive: true })
-    
-    // Check if file exists
-    try {
-      await fs.access(dbPath)
-    } catch {
-      // Initialize empty database if it doesn't exist
-      await fs.writeFile(dbPath, JSON.stringify({ bookings: [] }))
+    if (error) {
+      console.error('Error fetching bookings:', error)
       return []
     }
 
-    // Read and parse database
-    const data = await fs.readFile(dbPath, 'utf-8')
-    return JSON.parse(data).bookings
-  } catch (error) {
-    console.error('Error reading database:', error)
-    return []
-  }
-}
-
-async function writeDB(bookings: BookingData[]): Promise<void> {
-  try {
-    await fs.writeFile(dbPath, JSON.stringify({ bookings }, null, 2))
-  } catch (error) {
-    console.error('Error writing database:', error)
-    throw error
-  }
-}
-
-// Database operations
-export const db = {
-  getBookings: async (): Promise<BookingData[]> => {
-    return await readDB()
+    return data || []
   },
 
   addBooking: async (booking: BookingData): Promise<BookingData> => {
-    const bookings = await readDB()
-    
-    // Validate slot availability
-    const isSlotTaken = bookings.some(b => b.slot === booking.slot)
-    if (isSlotTaken) {
+    // Check if slot is available
+    const { data: existingBooking } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('slot', booking.slot)
+      .single()
+
+    if (existingBooking) {
       throw new Error('This time slot is already booked')
     }
 
-    // Check if code is unique
-    const isCodeTaken = bookings.some(b => b.code === booking.code)
-    if (isCodeTaken) {
-      throw new Error('Booking code already exists')
+    // Add new booking
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert(booking)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(error.message)
     }
 
-    // Add the new booking
-    const newBookings = [...bookings, booking]
-    await writeDB(newBookings)
-    return booking
+    return data
   },
 
   getBookingByCode: async (code: string): Promise<BookingData | null> => {
-    const bookings = await readDB()
-    return bookings.find(b => b.code === code) || null
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('code', code)
+      .single()
+
+    if (error) {
+      console.error('Error fetching booking:', error)
+      return null
+    }
+
+    return data
   },
 
-  updateBooking: async (code: string, data: Partial<BookingData>): Promise<BookingData> => {
-    const bookings = await readDB()
-    const index = bookings.findIndex(b => b.code === code)
-    
-    if (index === -1) {
+  updateBooking: async (code: string, updates: Partial<BookingData>): Promise<BookingData> => {
+    // First get the existing booking
+    const { data: existingBooking, error: fetchError } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('code', code)
+      .single()
+
+    if (fetchError || !existingBooking) {
       throw new Error('Booking not found')
     }
 
-    const existingBooking = bookings[index];
-    console.log('Existing booking:', existingBooking);
-    
-    // Preserve essential fields and update with new data
-    bookings[index] = {
-      ...existingBooking,              // preserve all existing fields
-      ...data,                         // apply updates
-      code: existingBooking.code,      // ensure code is preserved
-      slot: existingBooking.slot,      // ensure slot is preserved
-      name: existingBooking.name,      // ensure name is preserved
-      studentNumber: existingBooking.studentNumber,  // ensure student number is preserved
+    // Prepare the update data while preserving essential fields
+    const updateData = {
+      ...updates,
+      code: existingBooking.code,      // preserve code
+      slot: existingBooking.slot,      // preserve slot
+      name: existingBooking.name,      // preserve name
+      studentNumber: existingBooking.studentNumber,  // preserve student number
       updatedAt: new Date().toISOString()
     }
-    
-    console.log('Updated booking:', bookings[index]);
 
-    await writeDB(bookings)
-    return bookings[index]
+    // Update the booking
+    const { data, error } = await supabase
+      .from('bookings')
+      .update(updateData)
+      .eq('code', code)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data
   },
 
   deleteBooking: async (code: string): Promise<void> => {
-    const bookings = await readDB()
-    const booking = bookings.find(b => b.code === code)
+    // First get the booking to check date
+    const { data: booking, error: fetchError } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('code', code)
+      .single()
 
-    if (!booking) {
+    if (fetchError || !booking) {
       throw new Error('Booking not found')
     }
 
-    // Check if booking can be cancelled (not on or after presentation date)
+    // Check if booking can be cancelled
     const [dateStr] = booking.slot.split(' - ')
     const presentationDate = new Date(dateStr)
     presentationDate.setHours(0, 0, 0, 0)
@@ -116,18 +117,25 @@ export const db = {
       throw new Error('Cannot cancel bookings on or after the presentation date')
     }
 
-    // Remove booking
-    const newBookings = bookings.filter(b => b.code !== code)
-    await writeDB(newBookings)
+    // Delete the booking
+    const { error } = await supabase
+      .from('bookings')
+      .delete()
+      .eq('code', code)
+
+    if (error) {
+      throw new Error(error.message)
+    }
   },
 
   resetDatabase: async (): Promise<void> => {
-    try {
-      await writeDB([])
-      console.log('Database reset successfully')
-    } catch (error) {
-      console.error('Failed to reset database:', error)
-      throw error
+    const { error } = await supabase
+      .from('bookings')
+      .delete()
+      .neq('code', 'dummy') // This deletes all records
+
+    if (error) {
+      throw new Error(error.message)
     }
   }
 }
