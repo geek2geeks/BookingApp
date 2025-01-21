@@ -100,14 +100,19 @@ export function BookingForm({ onCancel }: BookingFormProps) {
 
   return (
     <div className="space-y-6">
-      <Button
-        variant="ghost"
-        onClick={onCancel}
-        className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-      >
-        <ChevronLeft className="w-4 h-4 mr-1" />
-        Back to Time Slot Selection
-      </Button>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+          Enter Details
+        </h2>
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          <ChevronLeft className="w-4 h-4 mr-2" />
+          Back to Time Slot Selection
+        </Button>
+      </div>
 
       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
         <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -168,6 +173,9 @@ export function BookingForm({ onCancel }: BookingFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-gray-900 dark:text-gray-100">Company Name (Optional)</FormLabel>
+                <p className="mt-1 mb-2 text-xs italic text-gray-600 dark:text-gray-400">
+                  To prevent multiple students from presenting on the same company
+                </p>
                 <FormControl>
                   <Input 
                     placeholder="Company Ltd" 
@@ -200,15 +208,9 @@ export function BookingForm({ onCancel }: BookingFormProps) {
 
           <div className="flex justify-end space-x-4">
             <Button
-              type="button"
-              variant="outline"
-              onClick={onCancel}
+              type="submit"
               disabled={isSubmitting}
             >
-              Back
-            </Button>
-
-            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

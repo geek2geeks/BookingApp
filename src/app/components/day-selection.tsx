@@ -44,14 +44,19 @@ export function DaySelection() {
 
   return (
     <div className="space-y-6">
-      <Button
-        variant="ghost"
-        onClick={goToPreviousStep}
-        className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-      >
-        <ChevronLeft className="w-4 h-4 mr-1" />
-        Back to Week Selection
-      </Button>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+          Select a Day
+        </h2>
+        <Button
+          variant="outline"
+          onClick={goToPreviousStep}
+          className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          <ChevronLeft className="w-4 h-4 mr-2" />
+          Back to Week Selection
+        </Button>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {days.map((day) => {

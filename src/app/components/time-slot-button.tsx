@@ -2,21 +2,11 @@
 
 import { useMemo, useState } from 'react'
 import { Settings, X, Loader2 } from 'lucide-react'
-import { useBookingStore } from '../lib/store/booking-store'
-import { formatTimeRange } from '../lib/utils/date-utils'
-import { cn } from '../lib/utils'
-import { TimeSlot } from '../types'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog"
-import { Input } from "@/app/components/ui/input"
+import * as Dialog from '@radix-ui/react-dialog'
+import { useBookingStore, useBookings } from '@/app/lib/store/booking-store'
+import { formatTimeRange, formatSlotDisplay } from '@/app/lib/utils/date-utils'
+import { cn } from '@/app/lib/utils'
+import type { TimeSlot } from '@/app/types'
 
 interface TimeSlotButtonProps {
   slot: TimeSlot
@@ -25,63 +15,97 @@ interface TimeSlotButtonProps {
   onClick: () => void
 }
 
+interface ButtonState {
+  state: 'past' | 'booked' | 'available'
+  label: string
+}
+
 export function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButtonProps) {
   const [showManage, setShowManage] = useState(false)
-  const [bookingCode, setBookingCode] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
-  const { bookings, cancelBooking } = useBookingStore()
+  const [bookingCode, setBookingCode] = useState('')
+  const [companyName, setCompanyName] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
+  const cancelBooking = useBookingStore((state) => state.cancelBooking)
+  const updateBooking = useBookingStore((state) => state.updateBooking)
+  const bookings = useBookings()
 
-  const buttonState = useMemo(() => {
+  const booking = useMemo(() => {
+    return bookings.find(b => b.slot === `${slot.date} - ${slot.startTime}`)
+  }, [bookings, slot])
+
+  const buttonState = useMemo((): ButtonState => {
     if (isPast) return { state: 'past', label: 'Past' }
-    if (isBooked) return { state: 'booked', label: 'Booked' }
+    if (isBooked) return { 
+      state: 'booked', 
+      label: booking ? `${booking.name}\n${booking.studentNumber}\n${booking.company || 'No company'}` : 'Booked'
+    }
     return { state: 'available', label: 'Available' }
-  }, [isPast, isBooked])
+  }, [isPast, isBooked, booking])
 
+  // Check if management is allowed (not on or after the presentation day)
+  const canManageBooking = useMemo(() => {
+    if (!isBooked || isPast || !booking) return false
+    const presentationDate = new Date(slot.date)
+    presentationDate.setHours(0, 0, 0, 0)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return presentationDate > today
+  }, [isBooked, isPast, slot.date, booking])
+
+  // Tailwind classes for different button states
   const buttonStyles = {
     past: 'bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-700',
     booked: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100',
     available: 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-100 dark:hover:bg-green-800'
   }
 
-  const booking = useMemo(() => {
-    if (!isBooked) return null
-    return bookings.find(b => b.slot === `${slot.date} - ${slot.startTime}`)
-  }, [bookings, slot, isBooked])
-
-  const canManageBooking = useMemo(() => {
-    if (!isBooked || isPast || !booking) return false
-    const [dateStr] = booking.slot.split(' - ')
-    const presentationDate = new Date(dateStr)
-    presentationDate.setHours(0, 0, 0, 0)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    return presentationDate > today
-  }, [isBooked, isPast, booking])
-
   const handleManage = (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (booking) {
+      setCompanyName(booking.company || '')
+    }
     setShowManage(true)
   }
 
-  const handleCancel = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!bookingCode) return
+  const handleCancel = async () => {
+    if (!booking) return
 
     setIsLoading(true)
     setError(null)
 
     try {
+      if (booking.code !== bookingCode) {
+        throw new Error('Invalid booking code')
+      }
       await cancelBooking(bookingCode)
       setShowManage(false)
       setBookingCode('')
     } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message)
-      } else {
-        setError('Failed to cancel booking')
+      setError(error instanceof Error ? error.message : 'Invalid booking code')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!booking) return
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      if (booking.code !== bookingCode) {
+        throw new Error('Invalid booking code')
       }
+      await updateBooking(bookingCode, { company: companyName })
+      setShowManage(false)
+      setBookingCode('')
+      setCompanyName('')
+      setIsEditing(false)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Invalid booking code')
     } finally {
       setIsLoading(false)
     }
@@ -103,7 +127,6 @@ export function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButt
             <span className="text-xs whitespace-pre-line">{buttonState.label}</span>
           </div>
         </button>
-
         {canManageBooking && (
           <button
             onClick={handleManage}
@@ -114,57 +137,168 @@ export function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButt
         )}
       </div>
 
-      <AlertDialog open={showManage} onOpenChange={setShowManage}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Manage Booking</AlertDialogTitle>
-            <AlertDialogDescription>
-              Enter your booking code to manage this time slot.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div>
-              <Input
-                value={bookingCode}
-                onChange={(e) => setBookingCode(e.target.value)}
-                placeholder="Enter booking code"
-                className="w-full"
-              />
-              {error && (
-                <p className="mt-1 text-sm text-red-500">{error}</p>
-              )}
+      <Dialog.Root open={showManage} onOpenChange={setShowManage}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+          <Dialog.Content className={cn(
+            'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
+            'w-full max-w-md p-6 rounded-lg shadow-lg',
+            'bg-white dark:bg-gray-800'
+          )} aria-describedby="dialog-description">
+            <div className="flex items-center justify-between mb-4">
+              <Dialog.Title className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Manage Booking
+              </Dialog.Title>
+              <Dialog.Close asChild>
+                <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                  <X className="w-5 h-5" />
+                </button>
+              </Dialog.Close>
             </div>
 
-            <AlertDialogFooter>
-              <AlertDialogCancel 
-                type="button"
-                onClick={() => {
-                  setShowManage(false)
-                  setBookingCode('')
-                  setError(null)
-                }}
-              >
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleCancel}
-                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-                disabled={!bookingCode || isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Canceling...
-                  </>
-                ) : (
-                  'Cancel Booking'
+            <div className="space-y-4">
+              <Dialog.Description id="dialog-description" className="text-gray-600 dark:text-gray-300">
+                Enter your booking code to manage your presentation slot.
+              </Dialog.Description>
+              <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                Note: You can only cancel bookings up until the day before your presentation.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="bookingCode"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Booking Code
+                  </label>
+                  <input
+                    type="text"
+                    id="bookingCode"
+                    value={bookingCode}
+                    onChange={(e) => setBookingCode(e.target.value)}
+                    placeholder="Enter 4-digit code"
+                    className={cn(
+                      'mt-1 w-full px-3 py-2 rounded-md border',
+                      'text-gray-900 dark:text-gray-100',
+                      'bg-white dark:bg-gray-800',
+                      'border-gray-300 dark:border-gray-600',
+                      'focus:outline-none focus:ring-2 focus:ring-blue-500',
+                      'disabled:opacity-50 disabled:cursor-not-allowed',
+                      error && 'border-red-500 focus:ring-red-500'
+                    )}
+                    disabled={isLoading}
+                  />
+                  {error && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {error}
+                    </p>
+                  )}
+                </div>
+
+                {isEditing && (
+                  <div>
+                    <label
+                      htmlFor="companyName"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      Company Name (Optional)
+                    </label>
+                    <p className="mt-1 mb-2 text-xs text-gray-600 dark:text-gray-400">
+                      To prevent multiple students from presenting on the same company
+                    </p>
+                    <input
+                      type="text"
+                      id="companyName"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="Enter new company name"
+                      className={cn(
+                        'mt-1 w-full px-3 py-2 rounded-md border',
+                        'text-gray-900 dark:text-gray-100',
+                        'bg-white dark:bg-gray-800',
+                        'border-gray-300 dark:border-gray-600',
+                        'focus:outline-none focus:ring-2 focus:ring-blue-500',
+                        'disabled:opacity-50 disabled:cursor-not-allowed'
+                      )}
+                      disabled={isLoading}
+                    />
+                  </div>
                 )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
+
+                <div className="flex justify-end space-x-4">
+                  <Dialog.Close asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        'px-4 py-2 rounded-md text-sm font-medium',
+                        'text-gray-700 dark:text-gray-200',
+                        'bg-gray-100 dark:bg-gray-700',
+                        'hover:bg-gray-200 dark:hover:bg-gray-600',
+                        'focus:outline-none focus:ring-2 focus:ring-gray-500',
+                        'disabled:opacity-50 disabled:cursor-not-allowed'
+                      )}
+                      disabled={isLoading}
+                      onClick={() => {
+                        setIsEditing(false)
+                        setBookingCode('')
+                        setCompanyName('')
+                      }}
+                    >
+                      Close
+                    </button>
+                  </Dialog.Close>
+
+                  <div className="space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(!isEditing)}
+                      className={cn(
+                        'px-4 py-2 rounded-md text-sm font-medium',
+                        'text-blue-600 hover:text-blue-700',
+                        'focus:outline-none',
+                        'disabled:opacity-50 disabled:cursor-not-allowed'
+                      )}
+                      disabled={isLoading}
+                    >
+                      {isEditing ? 'Cancel Edit' : 'Edit Company'}
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={isEditing ? handleUpdate : handleCancel}
+                      className={cn(
+                        'px-4 py-2 rounded-md text-sm font-medium',
+                        isEditing ? (
+                          'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                        ) : (
+                          'text-red-600 bg-red-50 hover:bg-red-100'
+                        ),
+                        'focus:outline-none focus:ring-2',
+                        isEditing
+                          ? 'focus:ring-blue-500'
+                          : 'focus:ring-red-500',
+                        'disabled:opacity-50 disabled:cursor-not-allowed',
+                        'flex items-center'
+                      )}
+                      disabled={!bookingCode || isLoading || (isEditing && !companyName)}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          {isEditing ? 'Updating...' : 'Canceling...'}
+                        </>
+                      ) : (
+                        isEditing ? 'Update Company' : 'Cancel Booking'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </>
   )
 } 

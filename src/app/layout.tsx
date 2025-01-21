@@ -51,9 +51,9 @@ export default function RootLayout({
                         <img 
                           src="https://assets.vercel.com/image/upload/v1662130559/nextjs/Icon_light_background.png" 
                           alt="Next.js" 
-                          className="h-8 w-8 dark:invert"
+                          className="h-8 w-8"
                         />
-                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 group-hover:text-blue-500 dark:group-hover:text-blue-400">Framework</span>
+                        <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">Next.js</span>
                       </div>
                     </a>
 
@@ -99,12 +99,10 @@ export default function RootLayout({
                       className="group"
                     >
                       <div className="flex flex-col items-center transform transition-transform group-hover:scale-110">
-                        <img 
-                          src="https://raw.githubusercontent.com/pmndrs/zustand/main/bear.jpg" 
-                          alt="Zustand" 
-                          className="h-8 w-8 rounded-full"
-                        />
-                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 group-hover:text-blue-500 dark:group-hover:text-blue-400">State Management</span>
+                        <div className="h-8 w-8 flex items-center justify-center">
+                          <span className="text-lg font-bold text-yellow-600 dark:text-yellow-500">🐻</span>
+                        </div>
+                        <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">Zustand</span>
                       </div>
                     </a>
 
@@ -141,7 +139,10 @@ export default function RootLayout({
                         </a>
                       </p>
                     </div>
-                    <ThemeSwitcher />
+                    <div className="flex flex-col items-center">
+                      <ThemeSwitcher />
+                      <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">Theme</span>
+                    </div>
                   </div>
                 </div>
               </div>
