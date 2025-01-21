@@ -19,12 +19,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" suppressHydrationWarning>
       <body className={cn(
         inter.className,
         'h-full bg-gray-50 dark:bg-gray-900',
         'text-gray-900 dark:text-gray-100'
-      )}>
+      )} suppressHydrationWarning>
         <Providers>
           <div className="min-h-full">
             <Navigation />

@@ -1,10 +1,12 @@
 import dayjs from 'dayjs'
 import customParseFormat from 'dayjs/plugin/customParseFormat'
 import isBetween from 'dayjs/plugin/isBetween'
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'  // Add this import
 import { TimeSlot, Booking } from '@/app/types'
 
 dayjs.extend(customParseFormat)
 dayjs.extend(isBetween)
+dayjs.extend(isSameOrBefore)  // Add this extension
 
 // Constants for time slots
 export const PRESENTATION_DATES = [
@@ -178,4 +180,4 @@ export function groupSlotsByDate(slots: TimeSlot[]): Record<string, TimeSlot[]> 
     groups[date].push(slot)
     return groups
   }, {} as Record<string, TimeSlot[]>)
-} 
+}
