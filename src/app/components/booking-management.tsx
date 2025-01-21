@@ -4,8 +4,7 @@ import { useState } from 'react'
 import { Loader2, Search, X } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useBookingStore } from '../lib/store/booking-store'
-import { type Booking } from '../lib/utils/booking-utils'
-import { formatSlotDisplay } from '../lib/utils/date-utils'
+import { type BookingData } from '@/app/types'
 import { cn } from '../lib/utils'
 
 // Booking details dialog component
@@ -14,7 +13,7 @@ function BookingDetailsDialog({
   onClose,
   onCancel,
 }: {
-  booking: Booking
+  booking: BookingData
   onClose: () => void
   onCancel: () => void
 }) {
@@ -51,7 +50,7 @@ function BookingDetailsDialog({
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Time Slot</h4>
-              <p className="text-gray-900 dark:text-gray-100">{formatSlotDisplay(booking.slot)}</p>
+              <p className="text-gray-900 dark:text-gray-100">{booking.slot}</p>
             </div>
 
             <div>
@@ -78,17 +77,21 @@ function BookingDetailsDialog({
               </div>
             )}
 
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Booking Code</h4>
-              <p className="text-gray-900 dark:text-gray-100 font-mono">{booking.code}</p>
-            </div>
+            {booking.code && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Booking Code</h4>
+                <p className="text-gray-900 dark:text-gray-100 font-mono">{booking.code}</p>
+              </div>
+            )}
 
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Created At</h4>
-              <p className="text-gray-900 dark:text-gray-100">
-                {new Date(booking.createdAt).toLocaleString()}
-              </p>
-            </div>
+            {booking.createdAt && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Created At</h4>
+                <p className="text-gray-900 dark:text-gray-100">
+                  {new Date(booking.createdAt).toLocaleString()}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="mt-6 flex justify-end space-x-4">
@@ -122,7 +125,7 @@ function BookingDetailsDialog({
 function BookingLookup({
   onFound,
 }: {
-  onFound: (booking: Booking) => void
+  onFound: (booking: BookingData) => void
 }) {
   const [code, setCode] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -142,8 +145,9 @@ function BookingLookup({
       } else {
         setError('No booking found with this code')
       }
-    } catch (error) {
-      setError('Failed to lookup booking')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to lookup booking'
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -213,11 +217,11 @@ function BookingLookup({
 
 // Main booking management component
 export function BookingManagement() {
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [selectedBooking, setSelectedBooking] = useState<BookingData | null>(null)
   const cancelBooking = useBookingStore((state) => state.cancelBooking)
 
   const handleCancel = async () => {
-    if (selectedBooking) {
+    if (selectedBooking?.code) {
       await cancelBooking(selectedBooking.code)
     }
   }
@@ -241,4 +245,4 @@ export function BookingManagement() {
       )}
     </div>
   )
-} 
+}

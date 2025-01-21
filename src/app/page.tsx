@@ -13,7 +13,8 @@ export default function Home() {
   const { 
     currentStep, 
     error,
-    fetchBookings
+    fetchBookings,
+    resetFlow
   } = useBookingStore()
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export default function Home() {
       case 'slot':
         return <TimeSlotSelection />
       case 'details':
-        return <BookingForm />
+        return <BookingForm onCancel={resetFlow} />
       default:
         return null
     }

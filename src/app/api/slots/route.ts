@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
-import { generateTimeSlots } from '@/app/lib/utils/date-utils'
+import { generateTimeSlots, formatSlotDisplay } from '@/app/lib/utils/date-utils'
 import { type ApiResponse, type GetSlotsResponse } from '../types'
 
 export async function GET(): Promise<NextResponse<ApiResponse<GetSlotsResponse>>> {
   try {
     // Generate all available time slots
-    const slots = generateTimeSlots()
+    const timeSlots = generateTimeSlots()
+    
+    // Convert TimeSlot objects to formatted strings
+    const slots = timeSlots.map(slot => formatSlotDisplay(slot))
 
     // TODO: Get booked slots from database
     const bookedSlots: string[] = []
@@ -27,4 +30,4 @@ export async function GET(): Promise<NextResponse<ApiResponse<GetSlotsResponse>>
       { status: 500 }
     )
   }
-} 
+}

@@ -1,4 +1,4 @@
-import { Booking } from '@/app/types'
+import { BookingData } from '@/app/types'
 import { db } from '../db'
 
 export function generateBookingCode(): string {
@@ -9,7 +9,7 @@ export function isValidBookingCode(code: string): boolean {
   return /^\d{4}$/.test(code)
 }
 
-export async function createBooking(data: Omit<Booking, 'code' | 'createdAt' | 'updatedAt'>): Promise<{ success: boolean; code?: string; message?: string }> {
+export async function createBooking(data: Omit<BookingData, 'code' | 'createdAt' | 'updatedAt'>): Promise<{ success: boolean; code?: string; message?: string }> {
   try {
     const code = generateBookingCode()
     const booking = await db.addBooking({
@@ -33,7 +33,7 @@ export async function cancelBooking(code: string): Promise<{ success: boolean; m
   }
 }
 
-export async function modifyBooking(code: string, data: Partial<Booking>): Promise<{ success: boolean; message?: string }> {
+export async function modifyBooking(code: string, data: Partial<BookingData>): Promise<{ success: boolean; message?: string }> {
   try {
     await db.updateBooking(code, {
       ...data,
@@ -45,11 +45,11 @@ export async function modifyBooking(code: string, data: Partial<Booking>): Promi
   }
 }
 
-export async function getBooking(code: string): Promise<{ success: boolean; booking?: Booking; message?: string }> {
+export async function getBooking(code: string): Promise<{ success: boolean; booking?: BookingData; message?: string }> {
   try {
     const booking = await db.getBookingByCode(code)
-    return { success: true, booking }
+    return { success: true, booking: booking || undefined }
   } catch (err) {
     return { success: false, message: err instanceof Error ? err.message : 'Failed to get booking' }
   }
-} 
+}

@@ -1,4 +1,4 @@
-import { type Booking } from '../lib/utils/booking-utils'
+import { type BookingData } from '@/app/types'
 
 // Common API response type
 export interface ApiResponse<T = void> {
@@ -17,7 +17,7 @@ export interface CreateBookingRequest {
 }
 
 export interface CreateBookingResponse {
-  booking: Booking
+  booking: BookingData
   code: string
 }
 
@@ -42,4 +42,4 @@ export interface CancelBookingRequest {
 export interface GetSlotsResponse {
   slots: string[]
   bookedSlots: string[]
-} 
+}

@@ -123,29 +123,14 @@ export function isPresentationDate(): boolean {
   return PRESENTATION_DATES.includes(dayjs().tz('Europe/London').format('YYYY-MM-DD'))
 }
 
-// Session type is always 'Presentation Day'
-export function getSessionType(): string {
-  return 'Presentation Day'
-}
-
-export function getAvailableSlotsCount(slots: TimeSlot[]): number {
-  return slots.filter(slot => slot.isAvailable && !isSlotInPast(slot)).length
+export function getSessionType(date: string): string {
+  const dayOfWeek = new Date(date).getDay()
+  return dayOfWeek === 6 ? 'Saturday Session' : 'Sunday Session'
 }
 
 export function isSlotInPast(slot: TimeSlot): boolean {
   const slotStart = dayjs(`${slot.date} ${slot.startTime}`, 'YYYY-MM-DD HH:mm')
   return slotStart.isBefore(dayjs())
-}
-
-export function groupSlotsByDate(slots: TimeSlot[]): Record<string, TimeSlot[]> {
-  return slots.reduce((groups, slot) => {
-    const date = slot.date
-    if (!groups[date]) {
-      groups[date] = []
-    }
-    groups[date].push(slot)
-    return groups
-  }, {} as Record<string, TimeSlot[]>)
 }
 
 export function formatDate(date: string) {
