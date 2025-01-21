@@ -59,12 +59,14 @@ export function TimeSlotSelection() {
     
     return {
       morningSlots: daySlots.filter(slot => {
-        const hour = parseInt(slot.startTime.split(':')[0])
-        return hour < 12 || (hour === 12 && parseInt(slot.startTime.split(':')[1]) === 0)
+        const [hours, minutes] = slot.startTime.split(':').map(Number)
+        const timeInMinutes = hours * 60 + minutes
+        return timeInMinutes >= 10 * 60 + 10 && timeInMinutes <= 13 * 60  // 10:10 to 13:00
       }),
       afternoonSlots: daySlots.filter(slot => {
-        const hour = parseInt(slot.startTime.split(':')[0])
-        return hour >= 14
+        const [hours, minutes] = slot.startTime.split(':').map(Number)
+        const timeInMinutes = hours * 60 + minutes
+        return timeInMinutes >= 14 * 60 + 10 && timeInMinutes <= 17 * 60  // 14:10 to 17:00
       })
     }
   }, [selectedDay])

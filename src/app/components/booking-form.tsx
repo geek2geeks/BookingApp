@@ -45,6 +45,7 @@ export function BookingForm({ onCancel }: BookingFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [bookingCode, setBookingCode] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const { 
     selectedTimeSlot,
     createBooking,
@@ -62,23 +63,35 @@ export function BookingForm({ onCancel }: BookingFormProps) {
   })
 
   const onSubmit = async (data: BookingFormData) => {
-    if (!selectedTimeSlot) return
+    if (!selectedTimeSlot) {
+      setError('No time slot selected')
+      return
+    }
 
     setIsSubmitting(true)
+    setError(null)
+
     try {
       // Generate a random 4-digit code
       const code = Math.floor(1000 + Math.random() * 9000).toString()
       
+      console.log('Submitting booking:', {
+        ...data,
+        slot: \`\${selectedTimeSlot.date} - \${selectedTimeSlot.startTime}\`,
+        code
+      })
+
       await createBooking({
         ...data,
-        slot: `${selectedTimeSlot.date} - ${selectedTimeSlot.startTime}`,
+        slot: \`\${selectedTimeSlot.date} - \${selectedTimeSlot.startTime}\`,
         code
       })
       
       setBookingCode(code)
       setShowConfirmation(true)
-    } catch (error) {
-      console.error('Booking failed:', error)
+    } catch (err) {
+      console.error('Booking failed:', err)
+      setError(err instanceof Error ? err.message : 'Failed to create booking')
     } finally {
       setIsSubmitting(false)
     }
@@ -106,13 +119,19 @@ export function BookingForm({ onCancel }: BookingFormProps) {
       </Button>
 
       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
-        <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
           Selected Time Slot
         </h3>
-        <p className="mt-1 text-blue-700 dark:text-blue-300">
+        <p className="mt-1 text-gray-800 dark:text-gray-200">
           {formatSlotDisplay(selectedTimeSlot)}
         </p>
       </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg text-red-600 dark:text-red-400">
+          {error}
+        </div>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -121,9 +140,13 @@ export function BookingForm({ onCancel }: BookingFormProps) {
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Full Name</FormLabel>
+                <FormLabel className="text-gray-900 dark:text-gray-100">Full Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="John Doe" {...field} />
+                  <Input 
+                    placeholder="John Doe" 
+                    className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" 
+                    {...field} 
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -135,9 +158,13 @@ export function BookingForm({ onCancel }: BookingFormProps) {
             name="studentNumber"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Student Number</FormLabel>
+                <FormLabel className="text-gray-900 dark:text-gray-100">Student Number</FormLabel>
                 <FormControl>
-                  <Input placeholder="12345678" {...field} />
+                  <Input 
+                    placeholder="he12345" 
+                    className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" 
+                    {...field} 
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -149,9 +176,13 @@ export function BookingForm({ onCancel }: BookingFormProps) {
             name="company"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Company Name (Optional)</FormLabel>
+                <FormLabel className="text-gray-900 dark:text-gray-100">Company Name (Optional)</FormLabel>
                 <FormControl>
-                  <Input placeholder="Company Ltd" {...field} />
+                  <Input 
+                    placeholder="Company Ltd" 
+                    className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" 
+                    {...field} 
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -163,11 +194,11 @@ export function BookingForm({ onCancel }: BookingFormProps) {
             name="notes"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Additional Notes (Optional)</FormLabel>
+                <FormLabel className="text-gray-900 dark:text-gray-100">Additional Notes (Optional)</FormLabel>
                 <FormControl>
                   <Textarea
                     placeholder="Any special requirements"
-                    className="resize-none"
+                    className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 resize-none"
                     {...field}
                   />
                 </FormControl>
@@ -203,13 +234,16 @@ export function BookingForm({ onCancel }: BookingFormProps) {
       <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Booking Confirmed!</AlertDialogTitle>
+            <AlertDialogTitle className="text-gray-900 dark:text-gray-100">
+              Booking Confirmed!
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+          
+          <div className="mt-4 space-y-4">
             <AlertDialogDescription>
               Your presentation has been successfully booked.
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          
-          <div className="my-4">
+
             <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md">
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 Your booking code is:
@@ -218,7 +252,8 @@ export function BookingForm({ onCancel }: BookingFormProps) {
                 {bookingCode}
               </div>
             </div>
-            <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+
+            <div className="text-sm text-gray-500 dark:text-gray-400">
               Please save this code - you'll need it to modify or cancel your booking.
             </div>
           </div>

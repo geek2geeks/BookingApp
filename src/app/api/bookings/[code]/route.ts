@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
-
-const prisma = new PrismaClient()
+import { db } from '@/app/lib/db'
 
 const updateSchema = z.object({
   company: z.string().optional(),
-  notes: z.string().max(500).optional(),
+  notes: z.string().optional(),
 })
 
 export async function GET(
@@ -14,10 +12,7 @@ export async function GET(
   { params }: { params: { code: string } }
 ) {
   try {
-    const booking = await prisma.booking.findUnique({
-      where: { code: params.code }
-    })
-
+    const booking = db.getBookingByCode(params.code)
     if (!booking) {
       return NextResponse.json(
         { error: 'Booking not found' },
@@ -43,16 +38,12 @@ export async function PATCH(
     const data = await request.json()
     const validatedData = updateSchema.parse(data)
 
-    const booking = await prisma.booking.update({
-      where: { code: params.code },
-      data: validatedData
-    })
-
+    const booking = db.updateBooking(params.code, validatedData)
     return NextResponse.json(booking)
   } catch (error) {
     console.error('Failed to update booking:', error)
     return NextResponse.json(
-      { error: 'Failed to update booking' },
+      { error: error instanceof Error ? error.message : 'Failed to update booking' },
       { status: 500 }
     )
   }
@@ -63,10 +54,7 @@ export async function DELETE(
   { params }: { params: { code: string } }
 ) {
   try {
-    const booking = await prisma.booking.findUnique({
-      where: { code: params.code }
-    })
-
+    const booking = db.getBookingByCode(params.code)
     if (!booking) {
       return NextResponse.json(
         { error: 'Booking not found' },
@@ -87,10 +75,7 @@ export async function DELETE(
       )
     }
 
-    await prisma.booking.delete({
-      where: { code: params.code }
-    })
-
+    db.deleteBooking(params.code)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Failed to delete booking:', error)

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useBookingStore } from '../lib/store/booking-store'
-import { generateTimeSlots, isSlotAvailable, PRESENTATION_DATES } from '../lib/utils/date-utils'
+import { generateTimeSlots, isSlotAvailable, isSlotInPast, PRESENTATION_DATES } from '../lib/utils/date-utils'
 import { cn } from '../lib/utils'
 
 export function WeekSelection() {
@@ -23,14 +23,18 @@ export function WeekSelection() {
       )
       
       if (weekSlots.length > 0) {
-        const availableSlots = weekSlots.filter(slot => isSlotAvailable(slot, bookings))
+        const availableSlots = weekSlots.filter(slot => {
+          const isPast = isSlotInPast(slot)
+          const isBooked = !isSlotAvailable(slot, bookings)
+          return !isPast && !isBooked
+        })
         
         weekGroups.push({
           weekNumber: i / 2 + 1,
           startDate: PRESENTATION_DATES[i],
           endDate: PRESENTATION_DATES[i + 1],
           availableSlots: availableSlots.length,
-          totalSlots: weekSlots.length
+          totalSlots: 28 // 14 slots per day * 2 days
         })
       }
     }

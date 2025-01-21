@@ -1,10 +1,11 @@
+import React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Navigation } from "./components/navigation";
 import { ThemeSwitcher } from "./components/theme-switcher";
 import { Providers } from "./providers";
 import "./globals.css";
-import { cn } from "@/lib/utils";
+import { cn } from "./lib/utils";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,8 +23,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={cn(
         inter.className,
-        'h-full bg-gray-50 dark:bg-gray-900',
-        'text-gray-900 dark:text-gray-100'
+        "h-full bg-gray-50 dark:bg-gray-900",
+        "text-gray-900 dark:text-gray-100"
       )} suppressHydrationWarning>
         <Providers>
           <div className="min-h-full">

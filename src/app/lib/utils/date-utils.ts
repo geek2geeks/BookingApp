@@ -1,12 +1,12 @@
 import dayjs from 'dayjs'
 import customParseFormat from 'dayjs/plugin/customParseFormat'
 import isBetween from 'dayjs/plugin/isBetween'
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'  // Add this import
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
 import { TimeSlot, Booking } from '@/app/types'
 
 dayjs.extend(customParseFormat)
 dayjs.extend(isBetween)
-dayjs.extend(isSameOrBefore)  // Add this extension
+dayjs.extend(isSameOrBefore)
 
 // Constants for time slots
 export const PRESENTATION_DATES = [
@@ -15,69 +15,46 @@ export const PRESENTATION_DATES = [
   '2025-02-08', '2025-02-09'   // Third weekend
 ]
 
-const MORNING_START = '10:00'
-const MORNING_FIRST_SLOT = '10:10'
-const MORNING_END = '13:00'
-const AFTERNOON_START = '14:00'
-const AFTERNOON_FIRST_SLOT = '14:10'
-const AFTERNOON_END = '17:00'
+// Morning time slots (7 slots)
+const MORNING_SLOTS = [
+  { start: '10:10', end: '10:30' },
+  { start: '10:35', end: '10:55' },
+  { start: '11:00', end: '11:20' },
+  { start: '11:25', end: '11:45' },
+  { start: '11:50', end: '12:10' },
+  { start: '12:15', end: '12:35' },
+  { start: '12:40', end: '13:00' }
+]
 
-const SLOT_DURATION = 20  // minutes
-const BREAK_DURATION = 5  // minutes
-const TOTAL_SLOT_DURATION = SLOT_DURATION + BREAK_DURATION
+// Afternoon time slots (7 slots)
+const AFTERNOON_SLOTS = [
+  { start: '14:10', end: '14:30' },
+  { start: '14:35', end: '14:55' },
+  { start: '15:00', end: '15:20' },
+  { start: '15:25', end: '15:45' },
+  { start: '15:50', end: '16:10' },
+  { start: '16:15', end: '16:35' },
+  { start: '16:40', end: '17:00' }
+]
 
-// Helper function to generate slots for a specific time range
-function generateSlotsForTimeRange(
-  date: string,
-  startTime: string,
-  endTime: string,
-  firstSlotTime: string
-): TimeSlot[] {
-  const slots: TimeSlot[] = []
-  const start = dayjs(`${date} ${firstSlotTime}`, 'YYYY-MM-DD HH:mm')
-  const end = dayjs(`${date} ${endTime}`, 'YYYY-MM-DD HH:mm')
-
-  let currentSlotStart = start
-  
-  while (currentSlotStart.isBefore(end)) {
-    const slotEnd = currentSlotStart.add(SLOT_DURATION, 'minute')
-    
-    // Only add slot if it ends before or at the session end time
-    if (slotEnd.isSameOrBefore(end)) {
-      slots.push({
-        date: date,
-        startTime: currentSlotStart.format('HH:mm'),
-        endTime: slotEnd.format('HH:mm'),
-        isAvailable: true
-      })
-    }
-    
-    // Move to next slot start time (including break)
-    currentSlotStart = currentSlotStart.add(TOTAL_SLOT_DURATION, 'minute')
-  }
-
-  return slots
+function generateSlotsForSession(date: string, sessionSlots: { start: string; end: string }[]): TimeSlot[] {
+  return sessionSlots.map(slot => ({
+    date,
+    startTime: slot.start,
+    endTime: slot.end,
+    isAvailable: true
+  }))
 }
 
 export function generateTimeSlots(): TimeSlot[] {
   const allSlots: TimeSlot[] = []
 
   PRESENTATION_DATES.forEach(date => {
-    // Generate morning slots (10:10 AM to 1:00 PM)
-    const morningSlots = generateSlotsForTimeRange(
-      date,
-      MORNING_START,
-      MORNING_END,
-      MORNING_FIRST_SLOT
-    )
+    // Generate morning slots
+    const morningSlots = generateSlotsForSession(date, MORNING_SLOTS)
     
-    // Generate afternoon slots (2:10 PM to 5:00 PM)
-    const afternoonSlots = generateSlotsForTimeRange(
-      date,
-      AFTERNOON_START,
-      AFTERNOON_END,
-      AFTERNOON_FIRST_SLOT
-    )
+    // Generate afternoon slots
+    const afternoonSlots = generateSlotsForSession(date, AFTERNOON_SLOTS)
 
     allSlots.push(...morningSlots, ...afternoonSlots)
   })
@@ -85,7 +62,6 @@ export function generateTimeSlots(): TimeSlot[] {
   return allSlots
 }
 
-// Utility functions for slot validation and formatting
 export function isSlotAvailable(slot: TimeSlot, bookings: Booking[]): boolean {
   // Check if slot is in the past
   const slotStart = dayjs(`${slot.date} ${slot.startTime}`, 'YYYY-MM-DD HH:mm')
@@ -107,29 +83,18 @@ export function formatSlotDisplay(slot: TimeSlot): string {
 
 export function validateSlotTiming(slot: TimeSlot): boolean {
   const startTime = dayjs(`${slot.date} ${slot.startTime}`, 'YYYY-MM-DD HH:mm')
-  const endTime = dayjs(`${slot.date} ${slot.endTime}`, 'YYYY-MM-DD HH:mm')
+  
+  // Check if this is a valid slot time
+  const isValidMorningSlot = MORNING_SLOTS.some(
+    morningSlot => morningSlot.start === slot.startTime && morningSlot.end === slot.endTime
+  )
+  const isValidAfternoonSlot = AFTERNOON_SLOTS.some(
+    afternoonSlot => afternoonSlot.start === slot.startTime && afternoonSlot.end === slot.endTime
+  )
 
-  // Validate date is in allowed dates
-  if (!PRESENTATION_DATES.includes(slot.date)) {
-    return false
-  }
-
-  // Validate slot duration
-  const durationMinutes = endTime.diff(startTime, 'minute')
-  if (durationMinutes !== SLOT_DURATION) {
-    return false
-  }
-
-  // Validate slot starts at valid time
-  const morningValid = startTime.format('HH:mm') >= MORNING_FIRST_SLOT && 
-                      endTime.format('HH:mm') <= MORNING_END
-  const afternoonValid = startTime.format('HH:mm') >= AFTERNOON_FIRST_SLOT && 
-                        endTime.format('HH:mm') <= AFTERNOON_END
-
-  return morningValid || afternoonValid
+  return isValidMorningSlot || isValidAfternoonSlot
 }
 
-// Helper function to get the next available slot
 export function getNextAvailableSlot(slots: TimeSlot[]): TimeSlot | null {
   const now = dayjs()
   return slots.find(slot => {
@@ -138,39 +103,27 @@ export function getNextAvailableSlot(slots: TimeSlot[]): TimeSlot | null {
   }) || null
 }
 
-// Format time range for display
 export function formatTimeRange(startTime: string, endTime: string): string {
   return `${startTime} - ${endTime}`
 }
 
-// Check if a date is a presentation date
 export function isPresentationDate(date: string): boolean {
   return PRESENTATION_DATES.includes(date)
 }
 
-// Get session type (morning or afternoon)
-export function getSessionType(time: string): 'morning' | 'afternoon' | null {
-  if (time >= MORNING_FIRST_SLOT && time <= MORNING_END) {
-    return 'morning'
-  }
-  if (time >= AFTERNOON_FIRST_SLOT && time <= AFTERNOON_END) {
-    return 'afternoon'
-  }
-  return null
+export function getSessionType(date: string): string {
+  return 'Presentation Day'
 }
 
-// Calculate available slots count
 export function getAvailableSlotsCount(slots: TimeSlot[]): number {
   return slots.filter(slot => slot.isAvailable && !isSlotInPast(slot)).length
 }
 
-// Check if slot is in the past
 export function isSlotInPast(slot: TimeSlot): boolean {
   const slotStart = dayjs(`${slot.date} ${slot.startTime}`, 'YYYY-MM-DD HH:mm')
   return slotStart.isBefore(dayjs())
 }
 
-// Group slots by date
 export function groupSlotsByDate(slots: TimeSlot[]): Record<string, TimeSlot[]> {
   return slots.reduce((groups, slot) => {
     const date = slot.date
@@ -182,7 +135,6 @@ export function groupSlotsByDate(slots: TimeSlot[]): Record<string, TimeSlot[]> 
   }, {} as Record<string, TimeSlot[]>)
 }
 
-// Format date for display
 export function formatDate(date: string) {
   const d = new Date(date)
   return d.toLocaleDateString('en-US', { 
