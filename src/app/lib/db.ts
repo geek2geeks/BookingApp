@@ -1,22 +1,50 @@
 import { BookingData } from '../types'
 import { supabase } from './supabase'
 
+// Helper function to convert snake_case to camelCase
+function snakeToCamel(data: any): any {
+  if (Array.isArray(data)) {
+    return data.map(snakeToCamel)
+  }
+  if (data !== null && typeof data === 'object') {
+    return Object.fromEntries(
+      Object.entries(data).map(([key, value]) => [
+        key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase()),
+        value
+      ])
+    )
+  }
+  return data
+}
+
 export const db = {
   getBookings: async (): Promise<BookingData[]> => {
     const { data, error } = await supabase
       .from('bookings')
       .select('*')
-      .order('createdAt', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (error) {
       console.error('Error fetching bookings:', error)
       return []
     }
 
-    return data || []
+    return snakeToCamel(data) || []
   },
 
   addBooking: async (booking: BookingData): Promise<BookingData> => {
+    // Convert camelCase to snake_case for database
+    const dbBooking = {
+      code: booking.code,
+      name: booking.name,
+      student_number: booking.studentNumber,
+      company: booking.company,
+      notes: booking.notes,
+      slot: booking.slot,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
     // Check if slot is available
     const { data: existingBooking } = await supabase
       .from('bookings')
@@ -31,7 +59,7 @@ export const db = {
     // Add new booking
     const { data, error } = await supabase
       .from('bookings')
-      .insert(booking)
+      .insert(dbBooking)
       .select()
       .single()
 
@@ -39,7 +67,7 @@ export const db = {
       throw new Error(error.message)
     }
 
-    return data
+    return snakeToCamel(data)
   },
 
   getBookingByCode: async (code: string): Promise<BookingData | null> => {
@@ -54,7 +82,7 @@ export const db = {
       return null
     }
 
-    return data
+    return snakeToCamel(data)
   },
 
   updateBooking: async (code: string, updates: Partial<BookingData>): Promise<BookingData> => {
@@ -69,20 +97,17 @@ export const db = {
       throw new Error('Booking not found')
     }
 
-    // Prepare the update data while preserving essential fields
-    const updateData = {
-      ...updates,
-      code: existingBooking.code,      // preserve code
-      slot: existingBooking.slot,      // preserve slot
-      name: existingBooking.name,      // preserve name
-      studentNumber: existingBooking.studentNumber,  // preserve student number
-      updatedAt: new Date().toISOString()
+    // Convert camelCase to snake_case for database
+    const dbUpdates = {
+      company: updates.company,
+      notes: updates.notes,
+      updated_at: new Date().toISOString()
     }
 
     // Update the booking
     const { data, error } = await supabase
       .from('bookings')
-      .update(updateData)
+      .update(dbUpdates)
       .eq('code', code)
       .select()
       .single()
@@ -91,7 +116,7 @@ export const db = {
       throw new Error(error.message)
     }
 
-    return data
+    return snakeToCamel(data)
   },
 
   deleteBooking: async (code: string): Promise<void> => {
