@@ -1,137 +1,58 @@
 'use client'
 
 import { useState } from 'react'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import * as Label from '@radix-ui/react-label'
-import * as AlertDialog from '@radix-ui/react-alert-dialog'
-import { Loader2 } from 'lucide-react'
-import { useBookingStore, useSelectedSlot } from '@/app/lib/store/booking-store'
-import { formatSlotDisplay } from '@/app/lib/utils/date-utils'
-import { bookingFormSchema, type BookingFormData } from '@/app/lib/schemas/booking-form-schema'
-import { cn } from '@/app/lib/utils'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
+import { ChevronLeft, Loader2 } from 'lucide-react'
+import { useBookingStore } from '../lib/store/booking-store'
+import { formatSlotDisplay } from '../lib/utils/date-utils'
+import { Button } from '@/app/components/ui/button'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/app/components/ui/form'
+import { Input } from '@/app/components/ui/input'
+import { Textarea } from '@/app/components/ui/textarea'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogAction,
+} from '@/app/components/ui/alert-dialog'
 
-interface FormFieldProps {
-  label: string
-  name: keyof BookingFormData
-  type?: string
-  placeholder?: string
-  required?: boolean
-  description?: string
-  error?: string
-  className?: string
+const bookingSchema = z.object({
+  name: z.string().min(2, 'Name must have at least 2 characters'),
+  studentNumber: z.string().min(1, 'Student number is required'),
+  company: z.string().optional(),
+  notes: z.string().optional(),
+})
+
+type BookingFormData = z.infer<typeof bookingSchema>
+
+interface BookingFormProps {
+  onCancel: () => void
 }
 
-// Form field component
-function FormField({
-  label,
-  name,
-  type = 'text',
-  placeholder,
-  required,
-  description,
-  error,
-  className,
-}: FormFieldProps) {
-  return (
-    <div className={cn('space-y-2', className)}>
-      <Label.Root
-        htmlFor={name}
-        className="text-sm font-medium text-gray-700 dark:text-gray-300"
-      >
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </Label.Root>
-      
-      <input
-        type={type}
-        id={name}
-        placeholder={placeholder}
-        className={cn(
-          'w-full px-3 py-2 rounded-md border',
-          'text-gray-900 dark:text-gray-100',
-          'bg-white dark:bg-gray-800',
-          'border-gray-300 dark:border-gray-600',
-          'focus:outline-none focus:ring-2 focus:ring-blue-500',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
-          error && 'border-red-500 focus:ring-red-500'
-        )}
-      />
-      
-      {description && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {description}
-        </p>
-      )}
-      
-      {error && (
-        <p className="text-sm text-red-500">
-          {error}
-        </p>
-      )}
-    </div>
-  )
-}
-
-// Textarea component
-function TextArea({
-  label,
-  name,
-  placeholder,
-  required,
-  description,
-  error,
-  className,
-}: Omit<FormFieldProps, 'type'>) {
-  return (
-    <div className={cn('space-y-2', className)}>
-      <Label.Root
-        htmlFor={name}
-        className="text-sm font-medium text-gray-700 dark:text-gray-300"
-      >
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </Label.Root>
-      
-      <textarea
-        id={name}
-        placeholder={placeholder}
-        rows={4}
-        className={cn(
-          'w-full px-3 py-2 rounded-md border',
-          'text-gray-900 dark:text-gray-100',
-          'bg-white dark:bg-gray-800',
-          'border-gray-300 dark:border-gray-600',
-          'focus:outline-none focus:ring-2 focus:ring-blue-500',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
-          error && 'border-red-500 focus:ring-red-500'
-        )}
-      />
-      
-      {description && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {description}
-        </p>
-      )}
-      
-      {error && (
-        <p className="text-sm text-red-500">
-          {error}
-        </p>
-      )}
-    </div>
-  )
-}
-
-// Main BookingForm component
-export function BookingForm() {
+export function BookingForm({ onCancel }: BookingFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
-  const [confirmationCode, setConfirmationCode] = useState<string | null>(null)
-  const selectedSlot = useSelectedSlot()
-  const { addBooking } = useBookingStore()
+  const [bookingCode, setBookingCode] = useState<string | null>(null)
+  const { 
+    selectedTimeSlot,
+    createBooking,
+    resetFlow
+  } = useBookingStore()
 
   const form = useForm<BookingFormData>({
-    resolver: zodResolver(bookingFormSchema),
+    resolver: zodResolver(bookingSchema),
     defaultValues: {
       name: '',
       studentNumber: '',
@@ -140,121 +61,132 @@ export function BookingForm() {
     },
   })
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = form
-
   const onSubmit = async (data: BookingFormData) => {
-    if (!selectedSlot) return
+    if (!selectedTimeSlot) return
 
+    setIsSubmitting(true)
     try {
-      const result = await addBooking({
+      // Generate a random 4-digit code
+      const code = Math.floor(1000 + Math.random() * 9000).toString()
+      
+      await createBooking({
         ...data,
-        slot: formatSlotDisplay(selectedSlot),
-        code: Math.floor(1000 + Math.random() * 9000).toString(), // 4-digit code
+        slot: `${selectedTimeSlot.date} - ${selectedTimeSlot.startTime}`,
+        code
       })
-
-      if (result.success && result.code) {
-        setConfirmationCode(result.code)
-        setShowConfirmation(true)
-      }
+      
+      setBookingCode(code)
+      setShowConfirmation(true)
     } catch (error) {
-      console.error('Failed to book slot:', error)
+      console.error('Booking failed:', error)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const handleConfirmation = () => {
+  const handleConfirmationClose = () => {
     setShowConfirmation(false)
-    setConfirmationCode(null)
-    reset()
+    setBookingCode(null)
+    resetFlow()
   }
 
-  if (!selectedSlot) {
-    return (
-      <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-        Please select a time slot to book your presentation
-      </div>
-    )
+  if (!selectedTimeSlot) {
+    return null
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-semibold mb-6 text-gray-900 dark:text-gray-100">
-          Book Presentation Slot
-        </h2>
+    <div className="space-y-6">
+      <Button
+        variant="ghost"
+        onClick={onCancel}
+        className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+      >
+        <ChevronLeft className="w-4 h-4 mr-1" />
+        Back to Time Slot Selection
+      </Button>
 
-        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-          <p className="text-blue-700 dark:text-blue-300">
-            Selected Time: {formatSlotDisplay(selectedSlot)}
-          </p>
-        </div>
+      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
+        <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+          Selected Time Slot
+        </h3>
+        <p className="mt-1 text-blue-700 dark:text-blue-300">
+          {formatSlotDisplay(selectedTimeSlot)}
+        </p>
+      </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField
-            label="Full Name"
+            control={form.control}
             name="name"
-            placeholder="John Doe"
-            required
-            error={errors.name?.message}
-            {...register('name')}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Full Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="John Doe" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
 
           <FormField
-            label="Student Number"
+            control={form.control}
             name="studentNumber"
-            placeholder="20231234"
-            required
-            description="Your 8-digit student identification number"
-            error={errors.studentNumber?.message}
-            {...register('studentNumber')}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Student Number</FormLabel>
+                <FormControl>
+                  <Input placeholder="12345678" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
 
           <FormField
-            label="Company Name"
+            control={form.control}
             name="company"
-            placeholder="Company Ltd"
-            description="Optional - Enter if you're currently employed"
-            error={errors.company?.message}
-            {...register('company')}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Company Name (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="Company Ltd" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
 
-          <TextArea
-            label="Additional Notes"
+          <FormField
+            control={form.control}
             name="notes"
-            placeholder="Any special requirements or information"
-            description="Optional - Maximum 500 characters"
-            error={errors.notes?.message}
-            {...register('notes')}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Additional Notes (Optional)</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Any special requirements"
+                    className="resize-none"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
 
           <div className="flex justify-end space-x-4">
-            <button
+            <Button
               type="button"
-              onClick={() => reset()}
-              className={cn(
-                'px-4 py-2 rounded-md text-sm font-medium',
-                'text-gray-700 dark:text-gray-200',
-                'bg-gray-100 dark:bg-gray-700',
-                'hover:bg-gray-200 dark:hover:bg-gray-600',
-                'focus:outline-none focus:ring-2 focus:ring-gray-500',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
-              )}
+              variant="outline"
+              onClick={onCancel}
               disabled={isSubmitting}
             >
-              Cancel
-            </button>
-            
-            <button
-              type="submit"
-              className={cn(
-                'px-4 py-2 rounded-md text-sm font-medium',
-                'text-white',
-                'bg-blue-600 dark:bg-blue-500',
-                'hover:bg-blue-700 dark:hover:bg-blue-600',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
-              )}
-              disabled={isSubmitting}
-            >
+              Back
+            </Button>
+
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -263,57 +195,41 @@ export function BookingForm() {
               ) : (
                 'Book Slot'
               )}
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+      </Form>
 
-      <AlertDialog.Root open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 bg-black/50" />
-          <AlertDialog.Content className={cn(
-            'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-            'w-full max-w-md p-6 rounded-lg shadow-lg',
-            'bg-white dark:bg-gray-800'
-          )}>
-            <AlertDialog.Title className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
-              Booking Confirmed!
-            </AlertDialog.Title>
-            <AlertDialog.Description className="space-y-4">
-              <p className="text-gray-600 dark:text-gray-300">
-                Your presentation has been successfully booked.
-              </p>
-              <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-md">
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Your confirmation code is:
-                </p>
-                <p className="text-2xl font-mono font-bold text-gray-900 dark:text-gray-100">
-                  {confirmationCode}
-                </p>
+      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Booking Confirmed!</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your presentation has been successfully booked.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="my-4">
+            <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Your booking code is:
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Please save this code - you'll need it to modify or cancel your booking.
-              </p>
-            </AlertDialog.Description>
-            <div className="mt-6 flex justify-end">
-              <AlertDialog.Action asChild>
-                <button
-                  onClick={handleConfirmation}
-                  className={cn(
-                    'px-4 py-2 rounded-md text-sm font-medium',
-                    'text-white',
-                    'bg-blue-600 dark:bg-blue-500',
-                    'hover:bg-blue-700 dark:hover:bg-blue-600',
-                    'focus:outline-none focus:ring-2 focus:ring-blue-500'
-                  )}
-                >
-                  Done
-                </button>
-              </AlertDialog.Action>
+              <div className="text-2xl font-mono font-bold text-gray-900 dark:text-gray-100">
+                {bookingCode}
+              </div>
             </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+            <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+              Please save this code - you'll need it to modify or cancel your booking.
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={handleConfirmationClose}>
+              Done
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
-} 
+}

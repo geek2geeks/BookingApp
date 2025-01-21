@@ -8,7 +8,6 @@ import { cn } from '../lib/utils'
 
 const navigation = [
   { name: 'Book Presentation', href: '/' },
-  { name: 'Manage Booking', href: '/manage' },
 ]
 
 export function Navigation() {

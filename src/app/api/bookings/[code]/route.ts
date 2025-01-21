@@ -1,148 +1,102 @@
-import { NextRequest, NextResponse } from 'next/server'
-import {
-  getBookingByCode,
-  modifyBooking,
-  cancelBooking,
-  type Booking,
-} from '@/app/lib/utils/booking-utils'
-import { type ApiResponse, type ModifyBookingRequest } from '../../types'
+import { NextResponse } from 'next/server'
+import { PrismaClient } from '@prisma/client'
+import { z } from 'zod'
 
-interface RouteParams {
-  params: {
-    code: string
-  }
-}
+const prisma = new PrismaClient()
 
-// Get booking details
+const updateSchema = z.object({
+  company: z.string().optional(),
+  notes: z.string().max(500).optional(),
+})
+
 export async function GET(
-  _request: NextRequest,
-  { params }: RouteParams
-): Promise<NextResponse<ApiResponse<Booking>>> {
+  request: Request,
+  { params }: { params: { code: string } }
+) {
   try {
-    const booking = await getBookingByCode(params.code)
+    const booking = await prisma.booking.findUnique({
+      where: { code: params.code }
+    })
+
     if (!booking) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Booking not found',
-        },
+        { error: 'Booking not found' },
         { status: 404 }
       )
     }
 
-    return NextResponse.json({
-      success: true,
-      data: booking,
-    })
+    return NextResponse.json(booking)
   } catch (error) {
-    console.error('Failed to get booking:', error)
+    console.error('Failed to fetch booking:', error)
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to get booking',
-      },
+      { error: 'Failed to fetch booking' },
       { status: 500 }
     )
   }
 }
 
-// Modify booking
 export async function PATCH(
-  request: NextRequest,
-  { params }: RouteParams
-): Promise<NextResponse<ApiResponse<Booking>>> {
+  request: Request,
+  { params }: { params: { code: string } }
+) {
   try {
-    const body = (await request.json()) as ModifyBookingRequest
+    const data = await request.json()
+    const validatedData = updateSchema.parse(data)
 
-    // Get existing booking
-    const existingBooking = await getBookingByCode(params.code)
-    if (!existingBooking) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Booking not found',
-        },
-        { status: 404 }
-      )
-    }
-
-    // Modify booking
-    const result = await modifyBooking(params.code, body)
-    if (!result.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: result.error || 'Failed to modify booking',
-        },
-        { status: 400 }
-      )
-    }
-
-    // TODO: Update booking in database
-    const updatedBooking = {
-      ...existingBooking,
-      ...body,
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: updatedBooking,
+    const booking = await prisma.booking.update({
+      where: { code: params.code },
+      data: validatedData
     })
+
+    return NextResponse.json(booking)
   } catch (error) {
-    console.error('Failed to modify booking:', error)
+    console.error('Failed to update booking:', error)
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to modify booking',
-      },
+      { error: 'Failed to update booking' },
       { status: 500 }
     )
   }
 }
 
-// Cancel booking
 export async function DELETE(
-  _request: NextRequest,
-  { params }: RouteParams
-): Promise<NextResponse<ApiResponse>> {
+  request: Request,
+  { params }: { params: { code: string } }
+) {
   try {
-    // Get existing booking
-    const existingBooking = await getBookingByCode(params.code)
-    if (!existingBooking) {
+    const booking = await prisma.booking.findUnique({
+      where: { code: params.code }
+    })
+
+    if (!booking) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Booking not found',
-        },
+        { error: 'Booking not found' },
         { status: 404 }
       )
     }
 
-    // Cancel booking
-    const result = await cancelBooking(params.code)
-    if (!result.success) {
+    // Check if the presentation is today or in the past
+    const [bookingDate] = booking.slot.split(' - ')
+    const presentationDate = new Date(bookingDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (presentationDate <= today) {
       return NextResponse.json(
-        {
-          success: false,
-          error: result.error || 'Failed to cancel booking',
-        },
+        { error: 'Cannot cancel bookings on or after the presentation date' },
         { status: 400 }
       )
     }
 
-    // TODO: Remove booking from database
-
-    return NextResponse.json({
-      success: true,
+    await prisma.booking.delete({
+      where: { code: params.code }
     })
+
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Failed to cancel booking:', error)
+    console.error('Failed to delete booking:', error)
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to cancel booking',
-      },
+      { error: 'Failed to delete booking' },
       { status: 500 }
     )
   }
-} 
+}

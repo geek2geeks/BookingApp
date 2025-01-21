@@ -39,7 +39,7 @@ export default function RootLayout({
               <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    © {new Date().getFullYear()} MBA7060 Presentation Booking System
+                    © {new Date().getFullYear()} MBA7060 Presentation Booking System by Pedro
                   </p>
                   <ThemeSwitcher />
                 </div>

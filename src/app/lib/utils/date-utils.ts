@@ -181,3 +181,13 @@ export function groupSlotsByDate(slots: TimeSlot[]): Record<string, TimeSlot[]> 
     return groups
   }, {} as Record<string, TimeSlot[]>)
 }
+
+// Format date for display
+export function formatDate(date: string) {
+  const d = new Date(date)
+  return d.toLocaleDateString('en-US', { 
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
+}

@@ -5,14 +5,30 @@ export interface TimeSlot {
   isAvailable: boolean;
 }
 
-export interface Booking {
+export interface BookingData {
   id?: string;
-  slot: string;  // Format: "YYYY-MM-DD - HH:mm"
+  code?: string;
   name: string;
-  email: string;
-  title: string;
-  description: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  studentNumber: string;
+  company?: string;
+  notes?: string;
+  slot?: string;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface WeekData {
+  weekNumber: number;
+  startDate: string;
+  endDate: string;
+  availableSlots: number;
+  totalSlots: number;
+}
+
+export interface DayData {
+  date: string;
+  availableSlots: number;
+  totalSlots: number;
+  isFull: boolean;
+  isPast: boolean;
 }
