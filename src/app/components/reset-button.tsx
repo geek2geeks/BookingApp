@@ -56,17 +56,17 @@ export function ResetButton() {
           'w-full max-w-md p-6 rounded-lg shadow-lg',
           'bg-white dark:bg-gray-800'
         )}>
-          <Dialog.Title className="text-xl font-semibold mb-4">
+          <Dialog.Title className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
             Reset Database
           </Dialog.Title>
 
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              🔒 This function is restricted to administrators only. 
-              Regular users do not have access to the necessary 
-              permissions or reset codes to execute this operation.
-            </p>
+          <Dialog.Description className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            🔒 This function is restricted to administrators only. 
+            Regular users do not have access to the necessary 
+            permissions or reset codes to execute this operation.
+          </Dialog.Description>
 
+          <div className="space-y-4">
             <p className="text-sm text-red-500">
               ⚠️ This action will permanently delete all bookings and 
               cannot be undone. Only authorized administrators may 
@@ -76,7 +76,7 @@ export function ResetButton() {
             <div>
               <label
                 htmlFor="resetCode"
-                className="block text-sm font-medium mb-1"
+                className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100"
               >
                 Reset Code
               </label>
@@ -88,6 +88,7 @@ export function ResetButton() {
                 className={cn(
                   'w-full px-3 py-2 border rounded-md',
                   'bg-white dark:bg-gray-800',
+                  'text-gray-900 dark:text-gray-100',
                   'border-gray-300 dark:border-gray-600',
                   'focus:outline-none focus:ring-2 focus:ring-blue-500',
                   error && 'border-red-500 focus:ring-red-500'

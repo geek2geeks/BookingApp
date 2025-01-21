@@ -47,6 +47,10 @@ function BookingDetailsDialog({
             </Dialog.Close>
           </div>
 
+          <Dialog.Description className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            View and manage your booking details below.
+          </Dialog.Description>
+
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Time Slot</h4>
