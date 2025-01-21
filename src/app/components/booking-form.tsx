@@ -72,25 +72,16 @@ export function BookingForm({ onCancel }: BookingFormProps) {
     setError(null)
 
     try {
-      // Generate a random 4-digit code
-      const code = Math.floor(1000 + Math.random() * 9000).toString()
-      
-      console.log('Submitting booking:', {
+      const result = await createBooking({
         ...data,
-        slot: \`\${selectedTimeSlot.date} - \${selectedTimeSlot.startTime}\`,
-        code
-      })
-
-      await createBooking({
-        ...data,
-        slot: \`\${selectedTimeSlot.date} - \${selectedTimeSlot.startTime}\`,
-        code
+        slot: `${selectedTimeSlot.date} - ${selectedTimeSlot.startTime}`
       })
       
-      setBookingCode(code)
-      setShowConfirmation(true)
+      if (result.success && result.code) {
+        setBookingCode(result.code)
+        setShowConfirmation(true)
+      }
     } catch (err) {
-      console.error('Booking failed:', err)
       setError(err instanceof Error ? err.message : 'Failed to create booking')
     } finally {
       setIsSubmitting(false)

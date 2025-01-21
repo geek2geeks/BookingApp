@@ -104,7 +104,15 @@ export function getNextAvailableSlot(slots: TimeSlot[]): TimeSlot | null {
 }
 
 export function formatTimeRange(startTime: string, endTime: string): string {
-  return `${startTime} - ${endTime}`
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':')
+    const hour = parseInt(hours)
+    const period = hour >= 12 ? 'pm' : 'am'
+    const displayHour = hour > 12 ? hour - 12 : hour
+    return `${displayHour}.${minutes} ${period}`
+  }
+
+  return `${formatTime(startTime)} - ${formatTime(endTime)}`
 }
 
 export function isPresentationDate(date: string): boolean {

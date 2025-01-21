@@ -40,12 +40,30 @@ function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButtonProps
   const [isEditing, setIsEditing] = useState(false)
   const cancelBooking = useBookingStore((state) => state.cancelBooking)
   const updateBooking = useBookingStore((state) => state.updateBooking)
+  const bookings = useBookings()
+
+  const booking = useMemo(() => {
+    return bookings.find(b => b.slot === `${slot.date} - ${slot.startTime}`)
+  }, [bookings, slot])
 
   const buttonState = useMemo((): ButtonState => {
     if (isPast) return { state: 'past', label: 'Past' }
-    if (isBooked) return { state: 'booked', label: 'Booked' }
+    if (isBooked) return { 
+      state: 'booked', 
+      label: booking ? `${booking.name}\n${booking.company || 'No company'}` : 'Booked'
+    }
     return { state: 'available', label: 'Available' }
-  }, [isPast, isBooked])
+  }, [isPast, isBooked, booking])
+
+  // Check if management is allowed (not on or after the presentation day)
+  const canManageBooking = useMemo(() => {
+    if (!isBooked || isPast || !booking) return false
+    const presentationDate = new Date(slot.date)
+    presentationDate.setHours(0, 0, 0, 0)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return presentationDate > today
+  }, [isBooked, isPast, slot.date, booking])
 
   // Tailwind classes for different button states
   const buttonStyles = {
@@ -56,20 +74,28 @@ function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButtonProps
 
   const handleManage = (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (booking) {
+      setCompanyName(booking.company || '')
+    }
     setShowManage(true)
   }
 
   const handleCancel = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!booking) return
+
     setIsLoading(true)
     setError(null)
 
     try {
+      if (booking.code !== bookingCode) {
+        throw new Error('Invalid booking code')
+      }
       await cancelBooking(bookingCode)
       setShowManage(false)
       setBookingCode('')
-    } catch {
-      setError('Invalid booking code')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Invalid booking code')
     } finally {
       setIsLoading(false)
     }
@@ -77,24 +103,26 @@ function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButtonProps
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!booking) return
+
     setIsLoading(true)
     setError(null)
 
     try {
+      if (booking.code !== bookingCode) {
+        throw new Error('Invalid booking code')
+      }
       await updateBooking(bookingCode, { company: companyName })
       setShowManage(false)
       setBookingCode('')
       setCompanyName('')
       setIsEditing(false)
-    } catch {
-      setError('Invalid booking code')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Invalid booking code')
     } finally {
       setIsLoading(false)
     }
   }
-
-  const isPresentationDay = new Date(slot.date).getTime() === new Date().getTime()
-  const canCancel = isBooked && !isPast && !isPresentationDay
 
   return (
     <>
@@ -104,7 +132,7 @@ function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButtonProps
             <div className="relative">
               <button
                 className={cn(
-                  'w-full p-2 text-sm rounded-md transition-colors',
+                  'w-full p-2 text-sm rounded-md transition-colors min-h-[80px]',
                   buttonStyles[buttonState.state]
                 )}
                 onClick={onClick}
@@ -112,10 +140,10 @@ function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButtonProps
               >
                 <div className="flex flex-col items-center justify-center space-y-1">
                   <span>{formatTimeRange(slot.startTime, slot.endTime)}</span>
-                  <span className="text-xs">{buttonState.label}</span>
+                  <span className="text-xs whitespace-pre-line">{buttonState.label}</span>
                 </div>
               </button>
-              {canCancel && (
+              {canManageBooking && (
                 <button
                   onClick={handleManage}
                   className="absolute top-1 right-1 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
@@ -132,6 +160,12 @@ function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButtonProps
             >
               <p>{formatSlotDisplay(slot)}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Duration: 20 minutes</p>
+              {booking && (
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  <p>Booked by: {booking.name}</p>
+                  <p>Company: {booking.company || 'No company'}</p>
+                </div>
+              )}
               <Tooltip.Arrow className="fill-white dark:fill-gray-800" />
             </Tooltip.Content>
           </Tooltip.Portal>
@@ -320,7 +354,8 @@ export function TimeSlotGrid({ currentStep, onNext, onBack }: TimeSlotGridProps)
     // Group slots by week pairs (Saturday and Sunday)
     for (let i = 0; i < PRESENTATION_DATES.length; i += 2) {
       const weekSlots = slots.filter(slot => 
-        slot.date === PRESENTATION_DATES[i] || slot.date === PRESENTATION_DATES[i + 1]
+        slot.date === PRESENTATION_DATES[i] || 
+        (i + 1 < PRESENTATION_DATES.length && slot.date === PRESENTATION_DATES[i + 1])
       )
       
       if (weekSlots.length > 0) {
@@ -384,6 +419,12 @@ export function TimeSlotGrid({ currentStep, onNext, onBack }: TimeSlotGridProps)
           {weeks.map((week, index) => {
             const firstSlot = week.slots[0]
             const lastSlot = week.slots[week.slots.length - 1]
+            const availableSlots = week.slots.filter(slot => {
+              const isPast = isSlotInPast(slot)
+              const isBooked = !isSlotAvailable(slot, bookings)
+              return !isPast && !isBooked
+            })
+
             return (
               <button
                 key={week.weekStart}
@@ -403,6 +444,9 @@ export function TimeSlotGrid({ currentStep, onNext, onBack }: TimeSlotGridProps)
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {formatDate(firstSlot.date)} - {formatDate(lastSlot.date)}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  {availableSlots.length} of {week.slots.length} slots available
                 </p>
               </button>
             )
