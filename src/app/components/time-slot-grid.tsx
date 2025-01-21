@@ -17,6 +17,7 @@ import {
 } from '@/app/lib/utils/date-utils'
 import type { TimeSlot } from '@/app/types'
 import { cn } from '@/app/lib/utils'
+import { Button } from '@/app/components/ui/button'
 
 interface TimeSlotButtonProps {
   slot: TimeSlot
@@ -343,60 +344,22 @@ interface TimeSlotGridProps {
 export function TimeSlotGrid({ currentStep, onNext, onBack }: TimeSlotGridProps) {
   const bookings = useBookings()
   const { setSelectedSlot } = useBookingStore()
-  const [selectedWeek, setSelectedWeek] = useState<number | null>(null)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   
-  // Group dates by week
-  const weeks = useMemo(() => {
-    const slots = generateTimeSlots()
-    const weekGroups: { weekStart: string; slots: TimeSlot[] }[] = []
-    
-    // Group slots by week pairs (Saturday and Sunday)
-    for (let i = 0; i < PRESENTATION_DATES.length; i += 2) {
-      const weekSlots = slots.filter(slot => 
-        slot.date === PRESENTATION_DATES[i] || 
-        (i + 1 < PRESENTATION_DATES.length && slot.date === PRESENTATION_DATES[i + 1])
-      )
-      
-      if (weekSlots.length > 0) {
-        weekGroups.push({
-          weekStart: PRESENTATION_DATES[i],
-          slots: weekSlots
-        })
-      }
-    }
-    
-    return weekGroups
-  }, [])
-
-  // Filter slots based on selected week and day
+  // Filter slots for the selected day
   const filteredSlots = useMemo(() => {
-    if (!selectedWeek) return []
-    if (currentStep === 'week') return []
+    if (!selectedDay) return []
     
-    const weekSlots = weeks[selectedWeek].slots
-    let filtered = weekSlots
+    const slots = generateTimeSlots()
+    return slots.filter(slot => slot.date === selectedDay)
+  }, [selectedDay])
 
-    if (currentStep === 'slot' && selectedDay) {
-      filtered = filtered.filter(slot => slot.date === selectedDay)
-    }
-    
-    return filtered
-  }, [currentStep, selectedWeek, selectedDay, weeks])
-
-  // Get unique dates for the selected week
-  const datesForSelectedWeek = useMemo(() => {
-    if (selectedWeek === null) return []
-    const weekSlots = weeks[selectedWeek].slots
-    return [...new Set(weekSlots.map(slot => slot.date))]
-  }, [selectedWeek, weeks])
-
-  // Split slots into morning and afternoon sessions
-  const { morningSlots, afternoonSlots } = useMemo(() => {
+  // Group slots into morning and afternoon sessions
+  const groupedSlots = useMemo(() => {
     return {
       morningSlots: filteredSlots.filter(slot => {
         const hour = parseInt(slot.startTime.split(':')[0])
-        return hour < 12 || (hour === 12 && parseInt(slot.startTime.split(':')[1]) === 0)
+        return hour < 13
       }),
       afternoonSlots: filteredSlots.filter(slot => {
         const hour = parseInt(slot.startTime.split(':')[0])
@@ -405,180 +368,75 @@ export function TimeSlotGrid({ currentStep, onNext, onBack }: TimeSlotGridProps)
     }
   }, [filteredSlots])
 
-  // Handler for slot selection
-  const handleSlotClick = (slot: TimeSlot) => {
-    setSelectedSlot(slot)
-    onNext()
-  }
-
-  // Render week selection
-  if (currentStep === 'week') {
-    return (
-      <div className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {weeks.map((week, index) => {
-            const firstSlot = week.slots[0]
-            const lastSlot = week.slots[week.slots.length - 1]
-            const availableSlots = week.slots.filter(slot => {
-              const isPast = isSlotInPast(slot)
-              const isBooked = !isSlotAvailable(slot, bookings)
-              return !isPast && !isBooked
-            })
-
-            return (
-              <button
-                key={week.weekStart}
-                onClick={() => {
-                  setSelectedWeek(index)
-                  onNext()
-                }}
-                className={cn(
-                  'p-4 rounded-lg text-left transition-colors',
-                  'bg-white dark:bg-gray-800',
-                  'hover:bg-gray-50 dark:hover:bg-gray-700',
-                  'border border-gray-200 dark:border-gray-700'
-                )}
-              >
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                  Week {index + 1}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {formatDate(firstSlot.date)} - {formatDate(lastSlot.date)}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                  {availableSlots.length} of {week.slots.length} slots available
-                </p>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    )
-  }
-
-  // Render day selection
-  if (currentStep === 'day' && selectedWeek !== null) {
-    return (
-      <div className="space-y-6">
-        <button
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+          Select a Time Slot
+        </h2>
+        <Button
+          variant="outline"
           onClick={onBack}
           className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
         >
-          <ChevronLeft className="w-4 h-4 mr-1" />
-          Back to Week Selection
-        </button>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {datesForSelectedWeek.map((date) => (
-            <button
-              key={date}
-              onClick={() => {
-                setSelectedDay(date)
-                onNext()
-              }}
-              className={cn(
-                'p-4 rounded-lg text-left transition-colors',
-                'bg-white dark:bg-gray-800',
-                'hover:bg-gray-50 dark:hover:bg-gray-700',
-                'border border-gray-200 dark:border-gray-700'
-              )}
-            >
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                {formatDate(date)}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {getSessionType(date)}
-              </p>
-            </button>
-          ))}
-        </div>
+          <ChevronLeft className="w-4 h-4 mr-2" />
+          Back to Day Selection
+        </Button>
       </div>
-    )
-  }
 
-  // Render slot selection
-  if (currentStep === 'slot' && selectedDay) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Select a Time Slot
-          </h2>
-          <button
-            onClick={onBack}
-            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            <ChevronLeft className="w-4 h-4 inline mr-1" />
-            Back to Day Selection
-          </button>
-        </div>
-
-        <div className="space-y-6">
-          {/* Morning Session */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
-              Morning Session (10:10 AM - 1:00 PM)
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-              {morningSlots.map((slot, index) => {
-                const isPast = isSlotInPast(slot)
-                const isBooked = !isSlotAvailable(slot, bookings)
-                
-                return (
-                  <TimeSlotButton
-                    key={`${slot.date}-${slot.startTime}-${index}`}
-                    slot={slot}
-                    isBooked={isBooked}
-                    isPast={isPast}
-                    onClick={() => handleSlotClick(slot)}
-                  />
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Afternoon Session */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
-              Afternoon Session (2:10 PM - 5:00 PM)
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-              {afternoonSlots.map((slot, index) => {
-                const isPast = isSlotInPast(slot)
-                const isBooked = !isSlotAvailable(slot, bookings)
-                
-                return (
-                  <TimeSlotButton
-                    key={`${slot.date}-${slot.startTime}-${index}`}
-                    slot={slot}
-                    isBooked={isBooked}
-                    isPast={isPast}
-                    onClick={() => handleSlotClick(slot)}
-                  />
-                )
-              })}
-            </div>
+      <div className="space-y-8">
+        {/* Morning Session */}
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+            Morning Session (10:10 AM - 1:00 PM)
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {groupedSlots.morningSlots.map((slot) => {
+              const isPast = isSlotInPast(slot)
+              const isBooked = !isSlotAvailable(slot, bookings)
+              
+              return (
+                <TimeSlotButton
+                  key={`${slot.date}-${slot.startTime}`}
+                  slot={slot}
+                  isBooked={isBooked}
+                  isPast={isPast}
+                  onClick={() => {
+                    setSelectedSlot(slot)
+                    onNext()
+                  }}
+                />
+              )
+            })}
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="mt-6 flex flex-wrap gap-4 text-sm border-t pt-4">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-100 dark:bg-green-900 rounded" />
-            <span className="text-gray-600 dark:text-gray-300">Available</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded" />
-            <span className="text-gray-600 dark:text-gray-300">Booked</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded" />
-            <span className="text-gray-600 dark:text-gray-300">Past</span>
+        {/* Afternoon Session */}
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+            Afternoon Session (2:10 PM - 5:00 PM)
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {groupedSlots.afternoonSlots.map((slot) => {
+              const isPast = isSlotInPast(slot)
+              const isBooked = !isSlotAvailable(slot, bookings)
+              
+              return (
+                <TimeSlotButton
+                  key={`${slot.date}-${slot.startTime}`}
+                  slot={slot}
+                  isBooked={isBooked}
+                  isPast={isPast}
+                  onClick={() => {
+                    setSelectedSlot(slot)
+                    onNext()
+                  }}
+                />
+              )
+            })}
           </div>
         </div>
       </div>
-    )
-  }
-
-  return null
+    </div>
+  )
 } 

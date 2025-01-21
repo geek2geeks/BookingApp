@@ -16,9 +16,9 @@ dayjs.extend(isSameOrBefore)
 
 // Constants for time slots
 export const PRESENTATION_DATES = [
-  '2025-01-25', '2025-01-26',  // First weekend
-  '2025-02-01', '2025-02-02',  // Second weekend
-  '2025-02-08', '2025-02-09'   // Third weekend
+  '2025-02-02',  // First day
+  '2025-02-08',  // Second day
+  '2025-02-09'   // Third day
 ]
 
 // Morning time slots (7 slots)

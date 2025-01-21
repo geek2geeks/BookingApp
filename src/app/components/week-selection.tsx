@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useBookingStore } from '../lib/store/booking-store'
 import { generateTimeSlots, isSlotAvailable, isSlotInPast, PRESENTATION_DATES } from '../lib/utils/date-utils'
 import { cn } from '../lib/utils'
+import { Button } from '@/app/components/ui/button'
 
 export function WeekSelection() {
   const { 
@@ -12,63 +13,56 @@ export function WeekSelection() {
     bookings
   } = useBookingStore()
 
-  const weeks = useMemo(() => {
+  const presentationDays = useMemo(() => {
     const slots = generateTimeSlots()
-    const weekGroups = []
+    const dayGroups = []
     
-    // Group slots by week pairs (Saturday and Sunday)
-    for (let i = 0; i < PRESENTATION_DATES.length; i += 2) {
-      const weekSlots = slots.filter(slot => 
-        slot.date === PRESENTATION_DATES[i] || slot.date === PRESENTATION_DATES[i + 1]
-      )
+    // Process each presentation date
+    for (let i = 0; i < PRESENTATION_DATES.length; i++) {
+      const daySlots = slots.filter(slot => slot.date === PRESENTATION_DATES[i])
       
-      if (weekSlots.length > 0) {
-        const availableSlots = weekSlots.filter(slot => {
+      if (daySlots.length > 0) {
+        const availableSlots = daySlots.filter(slot => {
           const isPast = isSlotInPast(slot)
           const isBooked = !isSlotAvailable(slot, bookings)
           return !isPast && !isBooked
         })
         
-        weekGroups.push({
-          weekNumber: i / 2 + 1,
-          startDate: PRESENTATION_DATES[i],
-          endDate: PRESENTATION_DATES[i + 1],
+        dayGroups.push({
+          dayIndex: i,
+          date: PRESENTATION_DATES[i],
           availableSlots: availableSlots.length,
-          totalSlots: 28 // 14 slots per day * 2 days
+          totalSlots: 14 // 14 slots per day
         })
       }
     }
     
-    return weekGroups
+    return dayGroups
   }, [bookings])
 
-  const handleWeekSelect = (weekIndex: number) => {
-    selectWeek(weekIndex)
+  const handleDaySelect = (dayIndex: number) => {
+    selectWeek(dayIndex)
     goToNextStep()
   }
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-        Select a Week
+        Select a Presentation Day
       </h2>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {weeks.map((week) => {
-          const startDate = new Date(week.startDate).toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric'
-          })
-          const endDate = new Date(week.endDate).toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric'
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {presentationDays.map((day) => {
+          const date = new Date(day.date).toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
           })
 
           return (
             <button
-              key={week.weekNumber}
-              onClick={() => handleWeekSelect(week.weekNumber - 1)}
+              key={day.dayIndex}
+              onClick={() => handleDaySelect(day.dayIndex)}
               className={cn(
                 'p-4 rounded-lg text-left transition-colors',
                 'bg-white dark:bg-gray-800',
@@ -78,13 +72,10 @@ export function WeekSelection() {
               )}
             >
               <p className="font-medium text-gray-900 dark:text-gray-100">
-                Week {week.weekNumber}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {startDate} - {endDate}
+                {date}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                {week.availableSlots} of {week.totalSlots} slots available
+                {day.availableSlots} of {day.totalSlots} slots available
               </p>
             </button>
           )
