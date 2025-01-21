@@ -1,8 +1,14 @@
 import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
 import customParseFormat from 'dayjs/plugin/customParseFormat'
 import isBetween from 'dayjs/plugin/isBetween'
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
-import { TimeSlot, Booking } from '@/app/types'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
+dayjs.tz.setDefault('Europe/London')
+import { TimeSlot, BookingData } from '@/app/types'
 
 dayjs.extend(customParseFormat)
 dayjs.extend(isBetween)
@@ -62,7 +68,7 @@ export function generateTimeSlots(): TimeSlot[] {
   return allSlots
 }
 
-export function isSlotAvailable(slot: TimeSlot, bookings: Booking[]): boolean {
+export function isSlotAvailable(slot: TimeSlot, bookings: BookingData[]): boolean {
   // Check if slot is in the past
   const slotStart = dayjs(`${slot.date} ${slot.startTime}`, 'YYYY-MM-DD HH:mm')
   if (slotStart.isBefore(dayjs())) {
@@ -70,8 +76,8 @@ export function isSlotAvailable(slot: TimeSlot, bookings: Booking[]): boolean {
   }
 
   // Check if slot is already booked
-  return !bookings.some(booking => {
-    const [bookingDate, bookingTime] = booking.slot.split(' - ')
+  return !(Array.isArray(bookings) ? bookings : []).some(booking => {
+    if (!booking?.slot) return false
     return booking.slot === `${slot.date} - ${slot.startTime}`
   })
 }
@@ -82,8 +88,6 @@ export function formatSlotDisplay(slot: TimeSlot): string {
 }
 
 export function validateSlotTiming(slot: TimeSlot): boolean {
-  const startTime = dayjs(`${slot.date} ${slot.startTime}`, 'YYYY-MM-DD HH:mm')
-  
   // Check if this is a valid slot time
   const isValidMorningSlot = MORNING_SLOTS.some(
     morningSlot => morningSlot.start === slot.startTime && morningSlot.end === slot.endTime
@@ -115,11 +119,12 @@ export function formatTimeRange(startTime: string, endTime: string): string {
   return `${formatTime(startTime)} - ${formatTime(endTime)}`
 }
 
-export function isPresentationDate(date: string): boolean {
-  return PRESENTATION_DATES.includes(date)
+export function isPresentationDate(): boolean {
+  return PRESENTATION_DATES.includes(dayjs().tz('Europe/London').format('YYYY-MM-DD'))
 }
 
-export function getSessionType(date: string): string {
+// Session type is always 'Presentation Day'
+export function getSessionType(): string {
   return 'Presentation Day'
 }
 

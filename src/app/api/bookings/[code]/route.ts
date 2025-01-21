@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { BookingData } from '@/app/types'
 import { z } from 'zod'
 import { db } from '@/app/lib/db'
 
@@ -54,7 +55,7 @@ export async function DELETE(
   { params }: { params: { code: string } }
 ) {
   try {
-    const booking = db.getBookingByCode(params.code)
+    const booking = await db.getBookingByCode(params.code)
     if (!booking) {
       return NextResponse.json(
         { error: 'Booking not found' },
@@ -63,7 +64,7 @@ export async function DELETE(
     }
 
     // Check if the presentation is today or in the past
-    const [bookingDate] = booking.slot.split(' - ')
+    const [bookingDate] = (booking as BookingData).slot.split(' - ')
     const presentationDate = new Date(bookingDate)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -75,12 +76,14 @@ export async function DELETE(
       )
     }
 
-    db.deleteBooking(params.code)
+    await db.deleteBooking(params.code)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Failed to delete booking:', error)
+    console.error('Delete booking error details:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Failed to delete booking' },
+      { error: `Failed to delete booking: ${errorMessage}` },
       { status: 500 }
     )
   }

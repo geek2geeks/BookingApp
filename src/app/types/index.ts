@@ -12,9 +12,9 @@ export interface BookingData {
   studentNumber: string;
   company?: string;
   notes?: string;
-  slot?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+  slot: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface WeekData {

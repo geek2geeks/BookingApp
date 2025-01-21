@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Settings, X, Loader2 } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useBookingStore, useBookings } from '@/app/lib/store/booking-store'
-import { formatTimeRange, formatSlotDisplay } from '@/app/lib/utils/date-utils'
+import { formatTimeRange } from '@/app/lib/utils/date-utils'
 import { cn } from '@/app/lib/utils'
 import type { TimeSlot } from '@/app/types'
 
@@ -47,10 +47,13 @@ export function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButt
   // Check if management is allowed (not on or after the presentation day)
   const canManageBooking = useMemo(() => {
     if (!isBooked || isPast || !booking) return false
-    const presentationDate = new Date(slot.date)
-    presentationDate.setHours(0, 0, 0, 0)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    if (!isBooked || isPast || !booking) return false
+    
+    // Compare dates in London timezone for consistency
+    const presentationDate = new Date(slot.date + 'T00:00:00Z')
+    const today = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z')
+    
+    // Can manage if presentation is in the future
     return presentationDate > today
   }, [isBooked, isPast, slot.date, booking])
 
@@ -76,14 +79,16 @@ export function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButt
     setError(null)
 
     try {
-      if (booking.code !== bookingCode) {
+      if (!booking || booking.code !== bookingCode) {
         throw new Error('Invalid booking code')
       }
       await cancelBooking(bookingCode)
       setShowManage(false)
       setBookingCode('')
+      setError(null)
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Invalid booking code')
+      console.error('Cancel booking error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to cancel booking')
     } finally {
       setIsLoading(false)
     }
@@ -100,12 +105,19 @@ export function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButt
         throw new Error('Invalid booking code')
       }
       await updateBooking(bookingCode, { company: companyName })
+      
+      // Refetch bookings to ensure latest state
+      const updatedBookings = useBookingStore.getState().fetchBookings()
+      await updatedBookings
+      
       setShowManage(false)
       setBookingCode('')
       setCompanyName('')
       setIsEditing(false)
+      setError(null)
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Invalid booking code')
+      console.error('Update booking error:', error)
+      setError(error instanceof Error ? error.message : 'Failed to update booking')
     } finally {
       setIsLoading(false)
     }
@@ -144,20 +156,23 @@ export function TimeSlotButton({ slot, isBooked, isPast, onClick }: TimeSlotButt
             'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
             'w-full max-w-md p-6 rounded-lg shadow-lg',
             'bg-white dark:bg-gray-800'
-          )} aria-describedby="dialog-description">
+          )}>
             <div className="flex items-center justify-between mb-4">
               <Dialog.Title className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 Manage Booking
               </Dialog.Title>
               <Dialog.Close asChild>
-                <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <button
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  aria-label="Close dialog"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </Dialog.Close>
             </div>
 
             <div className="space-y-4">
-              <Dialog.Description id="dialog-description" className="text-gray-600 dark:text-gray-300">
+              <Dialog.Description className="text-gray-600 dark:text-gray-300">
                 Enter your booking code to manage your presentation slot.
               </Dialog.Description>
               <p className="text-sm text-yellow-600 dark:text-yellow-400">

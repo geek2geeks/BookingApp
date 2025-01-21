@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Navigation } from "./components/navigation";
 import { ThemeSwitcher } from "./components/theme-switcher";
+import { ResetButton } from "./components/reset-button";
 import { Providers } from "./providers";
 import "./globals.css";
 import { cn } from "./lib/utils";
@@ -139,9 +140,15 @@ export default function RootLayout({
                         </a>
                       </p>
                     </div>
-                    <div className="flex flex-col items-center">
-                      <ThemeSwitcher />
-                      <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">Theme</span>
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col items-center">
+                        <ThemeSwitcher />
+                        <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">Theme</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <ResetButton />
+                        <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">Reset</span>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -3,12 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useBookingStore } from '../lib/store/booking-store'
 
 export function Navigation() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const resetFlow = useBookingStore((state) => state.resetFlow)
   const pathname = usePathname()
 

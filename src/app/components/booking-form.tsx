@@ -247,7 +247,7 @@ export function BookingForm({ onCancel }: BookingFormProps) {
             </div>
 
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              Please save this code - you'll need it to modify or cancel your booking.
+              Please save this code - you&apos;ll need it to modify or cancel your booking.
             </div>
           </div>
 

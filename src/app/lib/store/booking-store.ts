@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { TimeSlot, BookingData } from '@/app/types';
-import { generateTimeSlots, isSlotAvailable, PRESENTATION_DATES } from '../utils/date-utils';
+import { isSlotAvailable, PRESENTATION_DATES } from '../utils/date-utils';
 import { isValidBookingCode } from '../utils/booking-utils';
 
 interface BookingFlowState {
@@ -42,7 +42,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   selectedWeek: null,
   selectedDay: null,
   selectedTimeSlot: null,
-  bookings: [],
+  bookings: [] as BookingData[],
   bookingData: null,
   isLoading: false,
   error: null,
@@ -140,7 +140,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       }));
 
       return { success: true, code: newBooking.code };
-    } catch (error) {
+    } catch (error: unknown) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to create booking',
         isLoading: false 
@@ -158,8 +158,11 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       }
       const bookings = await response.json();
       set({ bookings, isLoading: false });
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to fetch bookings', isLoading: false });
+    } catch (error: unknown) {
+      set({ 
+        error: error instanceof Error ? error.message : 'Failed to fetch bookings', 
+        isLoading: false 
+      });
     }
   },
 
@@ -171,20 +174,23 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch(`/api/bookings/${code}`, {
+      const response = await fetch(`/api/bookings?code=${code}`, {
         method: 'DELETE'
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to cancel booking');
+        const errorData = await response.json();
+        if (errorData.error === 'Cannot cancel bookings on or after the presentation date') {
+          throw new Error('Cannot cancel bookings on or after the presentation date');
+        }
+        throw new Error(errorData.error || 'Failed to cancel booking');
       }
 
       set(state => ({
         bookings: state.bookings.filter(b => b.code !== code),
         isLoading: false
       }));
-    } catch (error) {
+    } catch (error: unknown) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to cancel booking', 
         isLoading: false 
@@ -201,7 +207,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch(`/api/bookings/${code}`, {
+      const queryParams = new URLSearchParams({ code }).toString();
+      const response = await fetch(`/api/bookings?${queryParams}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -213,11 +220,28 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       }
 
       const updatedBooking = await response.json();
-      set(state => ({
-        bookings: state.bookings.map(b => b.code === code ? updatedBooking : b),
-        isLoading: false
-      }));
-    } catch (error) {
+      console.log('Server response:', updatedBooking);
+      
+      set(state => {
+        const existingBooking = state.bookings.find(b => b.code === code);
+        if (!existingBooking) {
+          console.warn('Booking not found in state:', code);
+          return { bookings: state.bookings, isLoading: false };
+        }
+        
+        const newBookings = state.bookings.map(b => 
+          b.code === code 
+            ? { ...existingBooking, ...updatedBooking, code } 
+            : b
+        );
+        
+        console.log('Updated state:', newBookings);
+        return {
+          bookings: newBookings,
+          isLoading: false
+        };
+      });
+    } catch (error: unknown) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to update booking', 
         isLoading: false 
@@ -242,7 +266,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     return get().bookings.find(b => b.code === code) || null;
   },
 
-  setSelectedSlot: (slot) => set({ selectedTimeSlot: slot }),
+  setSelectedSlot: (slot: TimeSlot | null) => set({ selectedTimeSlot: slot }),
   clearError: () => set({ error: null })
 }));
 

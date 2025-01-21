@@ -3,8 +3,7 @@
 import { useMemo } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useBookingStore } from '../lib/store/booking-store'
-import { generateTimeSlots, isSlotAvailable, isSlotInPast, formatTimeRange } from '../lib/utils/date-utils'
-import { cn } from '../lib/utils'
+import { generateTimeSlots, isSlotAvailable, isSlotInPast } from '../lib/utils/date-utils'
 import { Button } from '@/app/components/ui/button'
 import { TimeSlot } from '../types'
 import { TimeSlotButton } from './time-slot-button'
@@ -12,7 +11,6 @@ import { TimeSlotButton } from './time-slot-button'
 export function TimeSlotSelection() {
   const { 
     selectedDay,
-    selectedWeek,
     goToPreviousStep,
     goToNextStep,
     setSelectedSlot,
